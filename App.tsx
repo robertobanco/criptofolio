@@ -994,7 +994,7 @@ const App: React.FC = () => {
 
     const handleAnalyzePortfolio = async () => {
         setChatHistory([
-            { role: 'model', parts: [{ text: "Olá! Eu sou o CryptoFolio AI. Estou pronto para analisar sua carteira, incluindo os ativos na sua watchlist. Sobre o que você gostaria de saber?" }] }
+            { role: 'model', parts: [{ text: "Olá! Eu sou o Cripto Control AI. Estou pronto para analisar sua carteira, incluindo os ativos na sua watchlist. Sobre o que você gostaria de saber?" }] }
         ]);
         setAnalysisModalOpen(true);
     };
@@ -1043,7 +1043,7 @@ const App: React.FC = () => {
 
         // Avisar o usuário se a busca web está ativada (pode demorar mais)
         if (webSearchEnabled) {
-            addToast('Buscando informações online... Isso pode levar alguns segundos.', 'info');
+            addToast('Buscando informações online... Você pode navegar pelo app, avisaremos quando a resposta estiver pronta.', 'info');
         }
 
         try {
@@ -1100,6 +1100,11 @@ const App: React.FC = () => {
                 const newAiMessage: ChatMessage = { role: 'model', parts: [{ text: responseText }] };
                 setChatHistory(prev => [...prev, newAiMessage]);
                 setIsAnalyzing(false);
+
+                // Notificar usuário que a resposta está pronta (especialmente útil se ele navegou para outra tela)
+                if (webSearchEnabled) {
+                    addToast('✅ Análise com busca online concluída!', 'success');
+                }
                 return;
             }
 
@@ -1427,7 +1432,6 @@ const App: React.FC = () => {
                     sentimentError={sentimentAnalysisError}
                     onShare={handleShareText}
                     isPrivacyMode={isPrivacyMode}
-                    setIsPrivacyMode={setIsPrivacyMode}
                 />;
         }
     };
@@ -1461,6 +1465,8 @@ const App: React.FC = () => {
                 onDeleteAccount={handleDeleteAccountRequest}
                 addToast={addToast}
                 onOpenBriefingModal={handleOpenBriefingModal}
+                isPrivacyMode={isPrivacyMode}
+                onTogglePrivacyMode={setIsPrivacyMode}
             />
             <main className="max-w-7xl mx-auto p-4 md:p-6">
                 <CriticalAlertsBanner

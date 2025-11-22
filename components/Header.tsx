@@ -286,7 +286,7 @@ const Header: React.FC<HeaderProps> = ({
                         </div>
                         <h1 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                             <i className="fas fa-chart-pie text-indigo-400"></i>
-                            <span>CriptoFólio AI</span>
+                            <span>Cripto Control</span>
                         </h1>
                     </div>
 

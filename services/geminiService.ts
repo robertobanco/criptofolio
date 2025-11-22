@@ -111,7 +111,7 @@ export const generateChatResponse = async (apiKey: string, chatHistory: ChatMess
         return { text: "Erro: Chave API não configurada." };
     }
 
-    const systemInstruction = `Você é o CryptoFolio AI, especialista em criptomoedas.
+    const systemInstruction = `Você é o Cripto Control AI, especialista em criptomoedas.
     
     REGRA DE OURO: Use o JSON abaixo como ÚNICA fonte de verdade para números.
     
@@ -146,12 +146,21 @@ export const generateChatResponse = async (apiKey: string, chatHistory: ChatMess
                 history.shift(); // Remove a primeira mensagem se for 'model'
             }
 
-            const chat = model.startChat({
+            const chatConfig: any = {
                 history: history,
                 generationConfig: {
                     maxOutputTokens: 2000,
-                }
-            });
+                },
+            };
+
+            // Habilitar busca web se solicitado (Google Search grounding)
+            if (enableWebSearch) {
+                chatConfig.tools = [{
+                    googleSearchRetrieval: {}
+                }];
+            }
+
+            const chat = model.startChat(chatConfig);
 
             const result = await chat.sendMessage(lastMessage.parts[0].text);
             const response = await result.response;
@@ -170,7 +179,7 @@ export const generateDailyBriefing = async (apiKey: string, portfolioContext: st
     const genAI = createAiClient(apiKey);
     if (!genAI) return "Erro: Chave API não configurada.";
 
-    const systemInstruction = `Analista CryptoFolio AI. Gere um Briefing Diário conciso.
+    const systemInstruction = `Analista Cripto Control AI. Gere um Briefing Diário conciso.
     FOCO: Eventos das últimas 24h no portfólio.
     Use emojis. Seja direto.`;
 

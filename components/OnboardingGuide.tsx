@@ -25,7 +25,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete, onNavigat
   const steps: Step[] = [
     {
       position: 'center',
-      title: 'Bem-vindo ao CryptoFolio AI! 🚀',
+      title: 'Bem-vindo ao Cripto Control! 🚀',
       content: 'Este é um tour rápido para mostrar as principais funcionalidades. Vamos começar a configurar seu portfólio para o sucesso!',
     },
     {
@@ -67,71 +67,71 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete, onNavigat
     if (currentStep.action) {
       currentStep.action();
     }
-    
+
     const updatePosition = () => {
-        const targetElement = currentStep.targetId ? document.getElementById(currentStep.targetId) : null;
-        const rect = targetElement?.getBoundingClientRect() ?? null;
-        setTargetRect(rect);
-        
-        const tooltipEl = tooltipRef.current;
-        if (!tooltipEl) return;
+      const targetElement = currentStep.targetId ? document.getElementById(currentStep.targetId) : null;
+      const rect = targetElement?.getBoundingClientRect() ?? null;
+      setTargetRect(rect);
 
-        const isMobile = window.innerWidth < 768;
+      const tooltipEl = tooltipRef.current;
+      if (!tooltipEl) return;
 
-        // On mobile, or for centered steps, always position the tooltip in the middle of the screen.
-        if (isMobile || !rect || currentStep.position === 'center') {
-          setStyle({
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            maxWidth: 'calc(100vw - 32px)', // Ensure it fits on small screens
-          });
-          return;
-        }
+      const isMobile = window.innerWidth < 768;
 
-        // Desktop positioning logic
-        const tooltipRect = tooltipEl.getBoundingClientRect();
-        const margin = 16;
-        let top = 0;
-        let left = 0;
-        let transform = '';
-        
-        switch (currentStep.position) {
-            case 'bottom':
-                top = rect.bottom + margin;
-                left = rect.left + rect.width / 2;
-                transform = 'translateX(-50%)';
-                break;
-            case 'top':
-                top = rect.top - margin;
-                left = rect.left + rect.width / 2;
-                transform = 'translate(-50%, -100%)';
-                break;
-            case 'left':
-                top = rect.top + rect.height / 2;
-                left = rect.left - margin;
-                transform = 'translate(-100%, -50%)';
-                break;
-            case 'right':
-                top = rect.top + rect.height / 2;
-                left = rect.right + margin;
-                transform = 'translateY(-50%)';
-                break;
-        }
-
+      // On mobile, or for centered steps, always position the tooltip in the middle of the screen.
+      if (isMobile || !rect || currentStep.position === 'center') {
         setStyle({
-            top: `${top}px`,
-            left: `${left}px`,
-            transform: transform,
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          maxWidth: 'calc(100vw - 32px)', // Ensure it fits on small screens
         });
+        return;
+      }
+
+      // Desktop positioning logic
+      const tooltipRect = tooltipEl.getBoundingClientRect();
+      const margin = 16;
+      let top = 0;
+      let left = 0;
+      let transform = '';
+
+      switch (currentStep.position) {
+        case 'bottom':
+          top = rect.bottom + margin;
+          left = rect.left + rect.width / 2;
+          transform = 'translateX(-50%)';
+          break;
+        case 'top':
+          top = rect.top - margin;
+          left = rect.left + rect.width / 2;
+          transform = 'translate(-50%, -100%)';
+          break;
+        case 'left':
+          top = rect.top + rect.height / 2;
+          left = rect.left - margin;
+          transform = 'translate(-100%, -50%)';
+          break;
+        case 'right':
+          top = rect.top + rect.height / 2;
+          left = rect.right + margin;
+          transform = 'translateY(-50%)';
+          break;
+      }
+
+      setStyle({
+        top: `${top}px`,
+        left: `${left}px`,
+        transform: transform,
+      });
     };
-    
+
     const timeoutId = setTimeout(updatePosition, 50);
     window.addEventListener('resize', updatePosition);
 
     return () => {
-        clearTimeout(timeoutId);
-        window.removeEventListener('resize', updatePosition);
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', updatePosition);
     };
 
   }, [stepIndex, currentStep.targetId, currentStep.position, currentStep.action]);
@@ -143,24 +143,24 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete, onNavigat
       onComplete();
     }
   };
-  
+
   const handleSkip = () => {
-      onComplete();
+    onComplete();
   };
 
   const isLastStep = stepIndex === steps.length - 1;
 
   return (
     <div className="fixed inset-0 z-[100]">
-        {/* Backdrop */}
-        <div 
-            className="absolute inset-0 bg-black/70 transition-all duration-300"
-            style={{
-                clipPath: targetRect 
-                    ? `path(evenodd, 'M0 0 H ${window.innerWidth} V ${window.innerHeight} H 0 Z M ${targetRect.x - 6} ${targetRect.y - 6} H ${targetRect.right + 6} V ${targetRect.bottom + 6} H ${targetRect.x - 6} Z')` 
-                    : 'none'
-            }}
-        ></div>
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 transition-all duration-300"
+        style={{
+          clipPath: targetRect
+            ? `path(evenodd, 'M0 0 H ${window.innerWidth} V ${window.innerHeight} H 0 Z M ${targetRect.x - 6} ${targetRect.y - 6} H ${targetRect.right + 6} V ${targetRect.bottom + 6} H ${targetRect.x - 6} Z')`
+            : 'none'
+        }}
+      ></div>
 
       {/* Tooltip/Modal Box */}
       <div
@@ -171,15 +171,15 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete, onNavigat
         <h3 className="text-xl font-bold text-indigo-400 mb-3">{currentStep.title}</h3>
         <p className="text-gray-300 mb-6">{currentStep.content}</p>
         <div className="flex justify-between items-center">
-            <div>
-                {!isLastStep && (
-                    <Button onClick={handleSkip} variant="ghost">
-                        Pular Tour
-                    </Button>
-                )}
-            </div>
+          <div>
+            {!isLastStep && (
+              <Button onClick={handleSkip} variant="ghost">
+                Pular Tour
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-3">
-             <span className="text-sm text-gray-500">{stepIndex + 1} / {steps.length}</span>
+            <span className="text-sm text-gray-500">{stepIndex + 1} / {steps.length}</span>
             <Button onClick={handleNext} variant="primary">
               {isLastStep ? 'Concluir' : 'Próximo'}
             </Button>

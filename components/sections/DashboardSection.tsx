@@ -242,7 +242,7 @@ const DashboardSection: React.FC<DashboardSectionProps> = ({
         return (
             <EmptyState
                 icon="fa-rocket"
-                title="Bem-vindo ao seu CryptoFolio AI!"
+                title="Bem-vindo ao Cripto Control!"
                 message="Parece que você ainda não adicionou nenhuma transação. Comece agora para ver a mágica acontecer."
                 actionText="Adicionar Primeira Transação"
                 onAction={onNavigateToTransactions}
