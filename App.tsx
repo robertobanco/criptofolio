@@ -1041,71 +1041,88 @@ const App: React.FC = () => {
         setChatHistory(currentHistory);
         setIsAnalyzing(true);
 
-        for (let i = 0; i < 3; i++) { // Max 3 retries for data fetching
-            const response = await generateChatResponse(geminiApiKey, currentHistory, getPortfolioSummary(), webSearchEnabled);
-
-            let responseText = response.text;
-
-            const jsonBlockRegex = /```json\n([\s\S]*?)\n```/;
-            const codeBlockMatch = responseText.match(jsonBlockRegex);
-
-            let jsonString: string | null = null;
-            if (codeBlockMatch && codeBlockMatch[1]) {
-                jsonString = codeBlockMatch[1].trim();
-            } else {
-                const rawJsonMatch = responseText.match(/\{"request_historical_data_for":\s*\[[\s\S]*?\]\}/s);
-                if (rawJsonMatch) {
-                    jsonString = rawJsonMatch[0];
-                }
-            }
-
-            if (jsonString) {
-                try {
-                    // FIX: Type-guard the symbols received from the AI. The result of JSON.parse is `any`,
-                    // so we must ensure the array contains only strings before passing it to other functions.
-                    const parsedData = JSON.parse(jsonString);
-                    if (
-                        parsedData &&
-                        typeof parsedData === 'object' &&
-                        'request_historical_data_for' in parsedData &&
-                        Array.isArray(parsedData.request_historical_data_for)
-                    ) {
-                        const symbols = parsedData.request_historical_data_for as any[];
-                        // Corrected strict filtering for string array to satisfy TS compiler
-                        const stringSymbols = symbols.filter((item: any) => typeof item === 'string' && item.length > 0) as string[];
-
-                        if (stringSymbols.length > 0) {
-                            addToast(`A IA precisa de dados para: ${stringSymbols.join(', ')}. Buscando...`, 'info');
-
-                            await handleUpdateHistoricalData(stringSymbols, true);
-
-                            const systemMessage: ChatMessage = { role: 'user', parts: [{ text: `[SYSTEM] Os dados históricos para ${stringSymbols.join(', ')} foram buscados. Por favor, responda à pergunta anterior agora.` }] };
-                            currentHistory.push(systemMessage);
-                            setChatHistory(currentHistory);
-
-                            continue;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Falha ao analisar JSON extraído para solicitação de dados:", e);
-                }
-            }
-
-            const newAiMessage: ChatMessage = { role: 'model', parts: [{ text: responseText }] };
-            setChatHistory(prev => [...prev, newAiMessage]);
-            setIsAnalyzing(false);
-            return;
+        // Avisar o usuário se a busca web está ativada (pode demorar mais)
+        if (webSearchEnabled) {
+            addToast('Buscando informações online... Isso pode levar alguns segundos.', 'info');
         }
 
-        const errorMessage: ChatMessage = { role: 'model', parts: [{ text: "Ocorreu um erro ao buscar os dados necessários repetidamente. Por favor, reformule sua pergunta ou tente novamente mais tarde." }] };
-        setChatHistory(prev => [...prev, errorMessage]);
-        setIsAnalyzing(false);
+        try {
+            for (let i = 0; i < 3; i++) { // Max 3 retries for data fetching
+                const response = await generateChatResponse(geminiApiKey, currentHistory, getPortfolioSummary(), webSearchEnabled);
+
+                let responseText = response.text;
+
+                const jsonBlockRegex = /```json\n([\s\S]*?)\n```/;
+                const codeBlockMatch = responseText.match(jsonBlockRegex);
+
+                let jsonString: string | null = null;
+                if (codeBlockMatch && codeBlockMatch[1]) {
+                    jsonString = codeBlockMatch[1].trim();
+                } else {
+                    const rawJsonMatch = responseText.match(/\{"request_historical_data_for":\s*\[[\s\S]*?\]\}/s);
+                    if (rawJsonMatch) {
+                        jsonString = rawJsonMatch[0];
+                    }
+                }
+
+                if (jsonString) {
+                    try {
+                        // FIX: Type-guard the symbols received from the AI. The result of JSON.parse is `any`,
+                        // so we must ensure the array contains only strings before passing it to other functions.
+                        const parsedData = JSON.parse(jsonString);
+                        if (
+                            parsedData &&
+                            typeof parsedData === 'object' &&
+                            'request_historical_data_for' in parsedData &&
+                            Array.isArray(parsedData.request_historical_data_for)
+                        ) {
+                            const symbols = parsedData.request_historical_data_for as any[];
+                            // Corrected strict filtering for string array to satisfy TS compiler
+                            const stringSymbols = symbols.filter((item: any) => typeof item === 'string' && item.length > 0) as string[];
+
+                            if (stringSymbols.length > 0) {
+                                addToast(`A IA precisa de dados para: ${stringSymbols.join(', ')}. Buscando...`, 'info');
+
+                                await handleUpdateHistoricalData(stringSymbols, true);
+
+                                const systemMessage: ChatMessage = { role: 'user', parts: [{ text: `[SYSTEM] Os dados históricos para ${stringSymbols.join(', ')} foram buscados. Por favor, responda à pergunta anterior agora.` }] };
+                                currentHistory.push(systemMessage);
+                                setChatHistory(currentHistory);
+
+                                continue;
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Falha ao analisar JSON extraído para solicitação de dados:", e);
+                    }
+                }
+
+                const newAiMessage: ChatMessage = { role: 'model', parts: [{ text: responseText }] };
+                setChatHistory(prev => [...prev, newAiMessage]);
+                setIsAnalyzing(false);
+                return;
+            }
+
+            const errorMessage: ChatMessage = { role: 'model', parts: [{ text: "Ocorreu um erro ao buscar os dados necessários repetidamente. Por favor, reformule sua pergunta ou tente novamente mais tarde." }] };
+            setChatHistory(prev => [...prev, errorMessage]);
+            setIsAnalyzing(false);
+        } catch (error: any) {
+            console.error("Erro no chat:", error);
+            const errorMessage: ChatMessage = {
+                role: 'model',
+                parts: [{
+                    text: `Erro ao processar sua mensagem: ${error.message || 'Erro desconhecido'}. ${webSearchEnabled ? 'A busca na web pode ter falhado ou excedido o tempo limite.' : ''} Por favor, tente novamente.`
+                }]
+            };
+            setChatHistory(prev => [...prev, errorMessage]);
+            setIsAnalyzing(false);
+            addToast('Erro ao processar mensagem. Verifique sua conexão e tente novamente.', 'error');
+        }
     };
 
     const handleGenerateSentiment = async (assetSymbol: string) => {
         if (!geminiApiKey) {
             addToast('Chave de API do Gemini é necessária. Adicione nas Configurações.', 'error');
-            setSettingsModalOpen(true);
             return;
         }
         setIsAnalyzingSentiment(true);
