@@ -17,6 +17,8 @@ import Modal from './components/ui/Modal';
 import Button from './components/ui/Button';
 import ConfirmationModal from './components/ui/ConfirmationModal';
 import SettingsModal from './components/SettingsModal';
+import AccountModal from './components/AccountModal';
+import ToastNotification from './components/ui/ToastNotification';
 import AssetDetailView from './components/views/AssetDetailView';
 import AIChatView from './components/views/AIChatView';
 import OnboardingGuide from './components/OnboardingGuide';
@@ -65,126 +67,17 @@ const DEMO_ACCOUNTS: Account[] = [
     { id: 2, name: 'Corretora B', transactions: [] }
 ];
 
-const ToastNotification: React.FC<{ toast: Toast; onDismiss: (id: string) => void }> = ({ toast, onDismiss }) => {
-    const [visible, setVisible] = useState(false);
-
-    useEffect(() => {
-        // Slide in
-        const enterTimeout = setTimeout(() => setVisible(true), 10);
-
-        // Start countdown to slide out
-        const exitTimeout = setTimeout(() => {
-            setVisible(false);
-        }, 3000); // User-visible duration
-
-        // Actually remove from DOM after slide-out animation
-        const removeTimeout = setTimeout(() => {
-            onDismiss(toast.id);
-        }, 3300); // Duration + animation time
-
-        return () => {
-            clearTimeout(enterTimeout);
-            clearTimeout(exitTimeout);
-            clearTimeout(removeTimeout);
-        };
-    }, [toast.id, onDismiss]);
-
-    const icons = {
-        info: 'fa-bell',
-        success: 'fa-check-circle',
-        error: 'fa-exclamation-circle'
-    };
-    
-    const baseClasses = 'bg-gray-700 text-white p-4 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 ease-in-out';
-    const visibilityClasses = visible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0';
-
-    return (
-        <div className={`${baseClasses} ${visibilityClasses}`}>
-            <i className={`fas ${icons[toast.type]}`}></i>
-            <p className="flex-grow">{toast.message}</p>
-            <button 
-                onClick={() => setVisible(false)} 
-                className="ml-auto text-gray-400 hover:text-white"
-                aria-label="Dispensar notificação"
-            >
-                &times;
-            </button>
-        </div>
-    );
-};
 
 type ConfirmationDetails = {
-  title: string;
-  message: React.ReactNode;
-  onConfirm: () => void;
-  confirmText?: string;
-  confirmVariant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  isTransactionDelete?: boolean;
-  transactionId?: number;
-  isWatchlistItemDelete?: boolean;
-  watchlistItemSymbol?: string;
-};
-
-// --- Account Modal Component ---
-interface AccountModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (name: string, id?: number) => void;
-  mode: 'add' | 'rename';
-  initialName?: string;
-  accountId?: number;
-}
-
-const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, onSave, mode, initialName = '', accountId }) => {
-  const [name, setName] = useState(initialName);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setName(initialName);
-      // Focus the input when the modal opens
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [isOpen, initialName]);
-
-  const handleSave = () => {
-    if (name.trim()) {
-      onSave(name.trim(), accountId);
-      onClose();
-    }
-  };
-
-  const title = mode === 'add' ? 'Adicionar Nova Conta' : 'Renomear Conta';
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={title}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" onClick={handleSave} disabled={!name.trim()}>Salvar</Button>
-        </>
-      }
-    >
-      <div>
-        <label htmlFor="account-name" className="block text-sm font-medium text-gray-300 mb-1">
-          Nome da Conta
-        </label>
-        <input
-          ref={inputRef}
-          id="account-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Ex: Minha Carteira"
-          className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-        />
-      </div>
-    </Modal>
-  );
+    title: string;
+    message: React.ReactNode;
+    onConfirm: () => void;
+    confirmText?: string;
+    confirmVariant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+    isTransactionDelete?: boolean;
+    transactionId?: number;
+    isWatchlistItemDelete?: boolean;
+    watchlistItemSymbol?: string;
 };
 
 // Helper function to filter date-keyed objects like historicalAssetValues
@@ -199,25 +92,25 @@ const filterHistoryForAI = <T extends Record<string, Record<string, number> | nu
         if (Object.prototype.hasOwnProperty.call(history, symbol)) {
             const assetHistory = history[symbol];
             if (typeof assetHistory === 'object' && assetHistory !== null) {
-                 const filteredAssetHistory: Record<string, any> = {};
-                 const dates = Object.keys(assetHistory).sort();
-                 
-                 for (const date of dates) {
-                     if (date >= cutoffDateStr) {
-                         filteredAssetHistory[date] = assetHistory[date];
-                     }
-                 }
-                 
-                 // Find and add the last data point just before the cutoff date to provide context.
-                 const lastDateBeforeCutoff = dates.reverse().find(d => d < cutoffDateStr);
-                 if (lastDateBeforeCutoff && !filteredAssetHistory[lastDateBeforeCutoff]) {
-                     filteredAssetHistory[lastDateBeforeCutoff] = assetHistory[lastDateBeforeCutoff];
-                 }
+                const filteredAssetHistory: Record<string, any> = {};
+                const dates = Object.keys(assetHistory).sort();
 
-                 filteredHistory[symbol] = filteredAssetHistory;
+                for (const date of dates) {
+                    if (date >= cutoffDateStr) {
+                        filteredAssetHistory[date] = assetHistory[date];
+                    }
+                }
+
+                // Find and add the last data point just before the cutoff date to provide context.
+                const lastDateBeforeCutoff = dates.reverse().find(d => d < cutoffDateStr);
+                if (lastDateBeforeCutoff && !filteredAssetHistory[lastDateBeforeCutoff]) {
+                    filteredAssetHistory[lastDateBeforeCutoff] = assetHistory[lastDateBeforeCutoff];
+                }
+
+                filteredHistory[symbol] = filteredAssetHistory;
             } else {
-                 // For cases where an asset might have a `null` history entry
-                 filteredHistory[symbol] = assetHistory;
+                // For cases where an asset might have a `null` history entry
+                filteredHistory[symbol] = assetHistory;
             }
         }
     }
@@ -237,7 +130,7 @@ const filterPortfolioHistoryForAI = (history: PortfolioHistoryPoint[], days: num
         .slice()
         .reverse()
         .find(point => new Date(point.date) < cutoffDate);
-    
+
     if (recentPoints.length > 0) {
         return lastPointBeforeCutoff ? [lastPointBeforeCutoff, ...recentPoints] : recentPoints;
     } else if (lastPointBeforeCutoff) {
@@ -275,7 +168,7 @@ const App: React.FC = () => {
     const [isAnalyzing, setIsAnalyzing] = useState(false); // For Chat
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
-    
+
     const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
     const [geminiApiKey, setGeminiApiKey] = useLocalStorage<string>('geminiApiKey', '');
     const [cmcApiKey, setCmcApiKey] = useLocalStorage<string>('cmcApiKey', '');
@@ -283,7 +176,7 @@ const App: React.FC = () => {
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
     const [cryptoMap, setCryptoMap] = useLocalStorage<CryptoMap>('cryptoMap', {});
     const [alerts, setAlerts] = useLocalStorage<PriceAlert[]>('priceAlerts', []);
-    
+
     const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useLocalStorage<boolean>('autoRefreshEnabled', true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [toasts, setToasts] = useState<Toast[]>([]);
@@ -294,7 +187,7 @@ const App: React.FC = () => {
     const [isFetchingHistory, setIsFetchingHistory] = useState(false);
     const [watchlist, setWatchlist] = useLocalStorage<string[]>('watchlist', ['DOGE', 'SHIB']);
     const [rebalanceAssetSymbols, setRebalanceAssetSymbols] = useState<string[]>([]);
-    
+
     const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationDetails | null>(null);
     const [deleteAllTxsChecked, setDeleteAllTxsChecked] = useState(false);
 
@@ -302,15 +195,16 @@ const App: React.FC = () => {
 
     const [onboardingCompleted, setOnboardingCompleted] = useLocalStorage('onboardingCompleted', false);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-    
+
     const [areNotificationsEnabled, setAreNotificationsEnabled] = useLocalStorage<boolean>('areNotificationsEnabled', false);
+    const [isPrivacyMode, setIsPrivacyMode] = useLocalStorage<boolean>('isPrivacyMode', false);
     const notificationSound = useMemo(() => new Audio('https://cdn.freesound.org/previews/511/511486_6142149-lq.mp3'), []);
 
     // State for Sentiment Analysis
     const [sentimentAnalysisResult, setSentimentAnalysisResult] = useState<SentimentAnalysisResult | null>(null);
     const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
     const [sentimentAnalysisError, setSentimentAnalysisError] = useState<{ asset: string; message: string; } | null>(null);
-    
+
     // State for Daily Briefing Modal
     const [isBriefingModalOpen, setIsBriefingModalOpen] = useState(false);
     const [dailyBriefingContent, setDailyBriefingContent] = useState<string | null>(null);
@@ -332,7 +226,7 @@ const App: React.FC = () => {
         aiAnalysisText: null,
     };
     const [rebalancePlan, setRebalancePlan] = useState<RebalancePlanState>(initialRebalancePlan);
-    
+
     const initialComparatorPlan: ComparatorPlanState = {
         selectedAssets: [],
         timeRange: 'all',
@@ -346,7 +240,7 @@ const App: React.FC = () => {
         simulationError: null,
     };
     const [strategyPlan, setStrategyPlan] = useState<StrategyPlanState>(initialStrategyPlan);
-    
+
     const handleClearComparatorAndStrategy = () => {
         setComparatorPlan(initialComparatorPlan);
         setStrategyPlan(initialStrategyPlan);
@@ -436,7 +330,7 @@ const App: React.FC = () => {
             addToast("Estrutura de alertas atualizada.", "info");
         }
     }, []); // Run only once on mount, relies on the initial value from localStorage
-    
+
     useEffect(() => {
         if (accounts.length === 0) {
             const defaultAccount = { id: 1, name: 'Carteira Principal', transactions: [] };
@@ -458,14 +352,14 @@ const App: React.FC = () => {
             .filter(acc => activeAccountIds.includes(acc.id))
             .flatMap(acc => acc.transactions);
     }, [accounts, activeAccountIds]);
-    
+
     const activeAccountNames = useMemo(() => {
         return accounts
             .filter(acc => activeAccountIds.includes(acc.id))
             .map(acc => acc.name)
             .join('_');
     }, [accounts, activeAccountIds]);
-    
+
     const isMultiAccountView = useMemo(() => activeAccountIds.length > 1, [activeAccountIds]);
 
     useEffect(() => {
@@ -484,7 +378,7 @@ const App: React.FC = () => {
                             'Accept': 'application/json',
                         }
                     });
-                    
+
                     const json = await response.json();
                     if (!response.ok) {
                         const errorMessage = json?.status?.error_message || `Erro de HTTP: ${response.status}`;
@@ -505,7 +399,7 @@ const App: React.FC = () => {
         };
         loadCryptoMap();
     }, [cmcApiKey, setCryptoMap, selectedProxy]);
-    
+
     // FIX: Use a ref to store historicalPrices to break the dependency cycle in the useCallback.
     const historicalPricesRef = useRef(historicalPrices);
     useEffect(() => {
@@ -514,7 +408,7 @@ const App: React.FC = () => {
 
     const handleUpdateHistoricalData = useCallback(async (symbols?: string[], force: boolean = false) => {
         const allSymbolsInPortfolio = Array.from(new Set(activeTransactions.map(tx => tx.asset))) as string[];
-        
+
         let assetsToCheck: string[] = [];
         if (symbols) {
             assetsToCheck = symbols;
@@ -523,7 +417,7 @@ const App: React.FC = () => {
         }
 
         if (assetsToCheck.length === 0) {
-            if (symbols) { 
+            if (symbols) {
                 addToast("Nenhuma transação para buscar histórico.", "info");
             }
             return;
@@ -543,8 +437,8 @@ const App: React.FC = () => {
             : assetsToCheck.filter(asset => !historicalPricesRef.current[asset]);
 
         if (assetsThatNeedFetching.length === 0 && !force) {
-            if (symbols === undefined) { 
-                 addToast("Todos os dados históricos do gráfico já estão atualizados.", "info");
+            if (symbols === undefined) {
+                addToast("Todos os dados históricos do gráfico já estão atualizados.", "info");
             }
             return;
         }
@@ -574,17 +468,17 @@ const App: React.FC = () => {
         addToast(`Buscando dados históricos para ${assetsThatNeedFetching.join(', ')}...`, "info");
         try {
             const { prices: newPrices, errors } = await fetchHistoricalPrices([...transactionsForFetching, ...dummyTransactions], force ? {} : historicalPricesRef.current, selectedProxy, cryptoCompareApiKey);
-    
+
             if (Object.keys(newPrices).length > 0) {
                 setHistoricalPrices(prev => ({ ...prev, ...newPrices }));
                 addToast("Dados históricos do gráfico foram atualizados!", "success");
                 setLastHistoryUpdateTimestamp(new Date().getTime().toString());
             }
-    
+
             if (errors.length > 0) {
                 errors.forEach(err => addToast(err, "error"));
             }
-    
+
         } catch (error) {
             console.error("Falha inesperada ao buscar dados históricos:", error);
             addToast(`Erro inesperado ao atualizar dados do gráfico: ${error instanceof Error ? error.message : 'Erro desconhecido'}`, "error");
@@ -625,10 +519,10 @@ const App: React.FC = () => {
 
         // Add watchlist symbols
         watchlist.forEach(s => symbolsToFetch.add(s));
-        
+
         // Add rebalance symbols
         rebalanceAssetSymbols.forEach(s => symbolsToFetch.add(s));
-        
+
         // Add symbol from alert form, if it's a valid crypto symbol
         const formAsset = alertFormAsset.trim().toUpperCase();
         if (formAsset) {
@@ -642,7 +536,7 @@ const App: React.FC = () => {
     }, [activeTransactions, alertSymbolsList, alertFormAsset, watchlist, rebalanceAssetSymbols]);
 
     const debouncedUniqueSymbols = useDebounce(uniqueSymbols, 500);
-    
+
     const fetchPrices = useCallback(async () => {
         if (!cmcApiKey || debouncedUniqueSymbols.length === 0) {
             setCryptoData({});
@@ -665,7 +559,7 @@ const App: React.FC = () => {
                 const errorMessage = json?.status?.error_message || `Erro de HTTP: ${response.status}`;
                 throw new Error(errorMessage);
             }
-            
+
             const newCryptoData: CryptoData = {};
             for (const symbol in json.data) {
                 if (Object.prototype.hasOwnProperty.call(json.data, symbol)) {
@@ -682,7 +576,7 @@ const App: React.FC = () => {
         } catch (error) {
             console.error("Falha ao buscar preços das criptomoedas:", error);
             let errorMessage = error instanceof Error ? error.message : String(error);
-             if (errorMessage.toLowerCase().includes("failed to fetch")) {
+            if (errorMessage.toLowerCase().includes("failed to fetch")) {
                 errorMessage = "Não foi possível conectar ao servidor para buscar preços.";
             }
             addToast(`Falha ao buscar preços: ${errorMessage}`, 'error');
@@ -701,17 +595,17 @@ const App: React.FC = () => {
     };
 
     useEffect(() => {
-        if(isAutoRefreshEnabled) {
+        if (isAutoRefreshEnabled) {
             fetchPrices();
             const interval = setInterval(fetchPrices, 5 * 60 * 1000); // Refresh every 5 minutes
             return () => clearInterval(interval);
         }
-    }, [fetchPrices, isAutoRefreshEnabled]); 
-    
+    }, [fetchPrices, isAutoRefreshEnabled]);
+
     const removeToast = (id: string) => {
         setToasts(prev => prev.filter(t => t.id !== id));
     };
-    
+
     const performanceData: AssetPerformance[] = useMemo(() => calculateAssetPerformance(activeTransactions, cryptoData), [activeTransactions, cryptoData]);
     const profitAnalysisData: ProfitAnalysisData[] = useMemo(() => calculateProfitAnalysis(activeTransactions, cryptoData), [activeTransactions, cryptoData]);
     const totalCostBasis = useMemo(() => performanceData.reduce((sum, asset) => sum + asset.totalInvested, 0), [performanceData]);
@@ -728,17 +622,17 @@ const App: React.FC = () => {
         if (!canCheckAlerts || alerts.length === 0) {
             return;
         }
-    
+
         let hasChanged = false;
         const updatedAlerts = alerts.map(alert => {
             if (alert.triggered && !alert.recurring) return alert;
-            
+
             let conditionMet = false;
             let message = '';
             let alertName = alert.asset;
             let currentValue: number | undefined;
             const isSpecialAsset = alert.asset.startsWith('__');
-            
+
             if (alert.asset === '__PORTFOLIO_TOTAL__') {
                 alertName = 'Valor Total da Carteira';
                 currentValue = totalPortfolioValue;
@@ -748,18 +642,18 @@ const App: React.FC = () => {
             } else {
                 const assetData = cryptoData[alert.asset];
                 if (!assetData) return alert; // No data for this asset, skip
-    
+
                 if (alert.type === 'price') {
                     currentValue = assetData.price;
                 } else if (alert.type === 'change24h') {
                     currentValue = assetData.percent_change_24h;
                 }
             }
-            
+
             if (currentValue === undefined || currentValue === null || (!isSpecialAsset && alert.type === 'price' && currentValue <= 0)) {
                 return alert;
             }
-    
+
             if (alert.type === 'price') {
                 if ((alert.condition === 'above' && currentValue >= alert.targetValue) || (alert.condition === 'below' && currentValue <= alert.targetValue)) {
                     conditionMet = true;
@@ -772,7 +666,7 @@ const App: React.FC = () => {
                     message = `🔔 ALERTA 24H: ${alert.asset} variou ${currentValue.toFixed(2)}%. Alvo: ${alert.condition === 'above' ? '>' : '<'} ${targetPercent.toFixed(2)}%`;
                 }
             }
-    
+
             if (conditionMet && !alert.triggered) {
                 addToast(message, 'info');
                 if (areNotificationsEnabled) {
@@ -791,14 +685,14 @@ const App: React.FC = () => {
                 hasChanged = true;
                 return { ...alert, triggered: false, triggeredAt: undefined };
             }
-    
+
             return alert;
         });
-    
+
         if (hasChanged) {
             setAlerts(updatedAlerts);
         }
-    
+
     }, [cryptoData, alerts, setAlerts, addToast, totalPortfolioValue, totalUnrealizedProfit, areNotificationsEnabled, notificationSound, lastUpdated, debouncedUniqueSymbols, hasSpecialAlerts]);
 
     // Daily check for critical AI-driven alerts
@@ -875,7 +769,7 @@ const App: React.FC = () => {
     };
 
     const handleUpdateTransaction = (updatedTx: Transaction) => {
-         if (isMultiAccountView) return;
+        if (isMultiAccountView) return;
         setAccounts(prev => prev.map(acc => {
             if (acc.id === activeAccountIds[0]) {
                 return { ...acc, transactions: acc.transactions.map(tx => tx.id === updatedTx.id ? updatedTx : tx) };
@@ -896,7 +790,7 @@ const App: React.FC = () => {
     };
 
     const handleDeleteAllTransactions = () => {
-         if (isMultiAccountView) return;
+        if (isMultiAccountView) return;
         setAccounts(prev => prev.map(acc => {
             if (acc.id === activeAccountIds[0]) {
                 return { ...acc, transactions: [] };
@@ -915,10 +809,10 @@ const App: React.FC = () => {
             transactionId: id,
             title: '', // Will be dynamically replaced
             message: '', // Will be dynamically replaced
-            onConfirm: () => {}, // Handled by global handleConfirm
+            onConfirm: () => { }, // Handled by global handleConfirm
         });
     };
-    
+
     const handleAddAccount = (name: string) => {
         const newId = accounts.length > 0 ? Math.max(...accounts.map(a => a.id)) + 1 : 1;
         const newAccount: Account = { id: newId, name, transactions: [] };
@@ -931,7 +825,7 @@ const App: React.FC = () => {
         setAccounts(prev => prev.map(acc => acc.id === id ? { ...acc, name: newName } : acc));
         addToast('Nome da conta atualizado.', 'success');
     };
-    
+
     const handleDeleteAccount = (id: number) => {
         const remainingAccounts = accounts.filter(acc => acc.id !== id);
         setAccounts(remainingAccounts);
@@ -992,11 +886,11 @@ const App: React.FC = () => {
             return acc;
         }));
     };
-    
+
     const handleAddAlert = (alert: Omit<PriceAlert, 'id' | 'triggered' | 'triggeredAt'>) => {
         const newAlert = { ...alert, id: Date.now().toString(), triggered: false };
         setAlerts(prev => [...prev, newAlert]);
-        setAlertFormAsset(''); 
+        setAlertFormAsset('');
         addToast(`Alerta para ${alert.asset} adicionado com sucesso.`, 'success');
     };
 
@@ -1006,14 +900,14 @@ const App: React.FC = () => {
         ));
         addToast(`Alerta para ${updatedAlert.asset} foi atualizado.`, 'success');
     };
-    
+
     const handleReArmAlert = (alertToReArm: PriceAlert) => {
         setAlerts(prev => prev.map(alert =>
             alert.id === alertToReArm.id ? { ...alert, triggered: false, triggeredAt: undefined } : alert
         ));
         addToast(`Alerta para ${alertToReArm.asset} foi reativado.`, 'success');
     };
-    
+
     const handleDeleteAlert = (id: string) => {
         setAlerts(prev => prev.filter(alert => alert.id !== id));
     };
@@ -1030,7 +924,7 @@ const App: React.FC = () => {
             confirmVariant: 'danger',
         });
     };
-    
+
     const handleAddWatchlistItem = (symbol: string) => {
         const upperSymbol = symbol.toUpperCase();
         if (watchlist.includes(upperSymbol)) {
@@ -1063,12 +957,12 @@ const App: React.FC = () => {
     const getPortfolioSummary = useCallback((): string => {
         const totalPortfolioValue = performanceData.reduce((sum, asset) => sum + asset.currentValue, 0);
         const totalProfit = profitAnalysisData.reduce((sum, asset) => sum + asset.totalProfit, 0);
-        
+
         const accountNames = accounts
             .filter(acc => activeAccountIds.includes(acc.id))
             .map(acc => acc.name)
             .join(', ');
-        
+
         // Trim transactions to the last 180 days
         const txCutoffDate = new Date();
         txCutoffDate.setDate(txCutoffDate.getDate() - 180);
@@ -1094,7 +988,7 @@ const App: React.FC = () => {
             watchlist: watchlist,
             historicalAssetValues: trimmedHistoricalAssetValues,
         };
-    
+
         return JSON.stringify(portfolioDataForAI, null, 2);
     }, [performanceData, profitAnalysisData, accounts, activeAccountIds, totalCostBasis, activeTransactions, portfolioHistoryForAI, allAssetsHistoricalValues, watchlist]);
 
@@ -1104,7 +998,7 @@ const App: React.FC = () => {
         ]);
         setAnalysisModalOpen(true);
     };
-    
+
     const handleOpenBriefingModal = useCallback(async () => {
         setIsBriefingModalOpen(true);
         if (dailyBriefingContent || isGeneratingBriefing) {
@@ -1141,20 +1035,20 @@ const App: React.FC = () => {
             setSettingsModalOpen(true);
             return;
         }
-    
+
         const newUserMessage: ChatMessage = { role: 'user', parts: [{ text: message }] };
         let currentHistory = [...chatHistory, newUserMessage];
         setChatHistory(currentHistory);
         setIsAnalyzing(true);
-    
+
         for (let i = 0; i < 3; i++) { // Max 3 retries for data fetching
             const response = await generateChatResponse(geminiApiKey, currentHistory, getPortfolioSummary(), webSearchEnabled);
-            
+
             let responseText = response.text;
-    
+
             const jsonBlockRegex = /```json\n([\s\S]*?)\n```/;
             const codeBlockMatch = responseText.match(jsonBlockRegex);
-            
+
             let jsonString: string | null = null;
             if (codeBlockMatch && codeBlockMatch[1]) {
                 jsonString = codeBlockMatch[1].trim();
@@ -1164,7 +1058,7 @@ const App: React.FC = () => {
                     jsonString = rawJsonMatch[0];
                 }
             }
-            
+
             if (jsonString) {
                 try {
                     // FIX: Type-guard the symbols received from the AI. The result of JSON.parse is `any`,
@@ -1179,30 +1073,30 @@ const App: React.FC = () => {
                         const symbols = parsedData.request_historical_data_for as any[];
                         // Corrected strict filtering for string array to satisfy TS compiler
                         const stringSymbols = symbols.filter((item: any) => typeof item === 'string' && item.length > 0) as string[];
-                    
+
                         if (stringSymbols.length > 0) {
                             addToast(`A IA precisa de dados para: ${stringSymbols.join(', ')}. Buscando...`, 'info');
-                            
+
                             await handleUpdateHistoricalData(stringSymbols, true);
-                            
+
                             const systemMessage: ChatMessage = { role: 'user', parts: [{ text: `[SYSTEM] Os dados históricos para ${stringSymbols.join(', ')} foram buscados. Por favor, responda à pergunta anterior agora.` }] };
                             currentHistory.push(systemMessage);
-                            setChatHistory(currentHistory); 
-                            
-                            continue; 
+                            setChatHistory(currentHistory);
+
+                            continue;
                         }
                     }
                 } catch (e) {
                     console.error("Falha ao analisar JSON extraído para solicitação de dados:", e);
                 }
             }
-            
+
             const newAiMessage: ChatMessage = { role: 'model', parts: [{ text: responseText }] };
             setChatHistory(prev => [...prev, newAiMessage]);
             setIsAnalyzing(false);
-            return; 
+            return;
         }
-        
+
         const errorMessage: ChatMessage = { role: 'model', parts: [{ text: "Ocorreu um erro ao buscar os dados necessários repetidamente. Por favor, reformule sua pergunta ou tente novamente mais tarde." }] };
         setChatHistory(prev => [...prev, errorMessage]);
         setIsAnalyzing(false);
@@ -1217,30 +1111,30 @@ const App: React.FC = () => {
         setIsAnalyzingSentiment(true);
         setSentimentAnalysisResult(null);
         setSentimentAnalysisError(null);
-    
+
         try {
             let assetHistory = historicalPrices[assetSymbol];
-            
+
             if (!assetHistory && cryptoCompareApiKey) {
                 addToast(`Dados históricos para ${assetSymbol} não encontrados. Buscando...`, 'info');
-                
+
                 let assetTransactions = activeTransactions.filter(tx => tx.asset === assetSymbol);
                 if (assetTransactions.length === 0) {
-                     const threeYearsAgo = new Date();
-                     threeYearsAgo.setDate(threeYearsAgo.getDate() - 1095);
-                     assetTransactions.push({
-                         id: -1, asset: assetSymbol, type: 'buy', date: threeYearsAgo.toISOString().split('T')[0], quantity: 0, value: 0
-                     });
+                    const threeYearsAgo = new Date();
+                    threeYearsAgo.setDate(threeYearsAgo.getDate() - 1095);
+                    assetTransactions.push({
+                        id: -1, asset: assetSymbol, type: 'buy', date: threeYearsAgo.toISOString().split('T')[0], quantity: 0, value: 0
+                    });
                 }
-    
+
                 const { prices: newPrices, errors: fetchErrors } = await fetchHistoricalPrices(
                     assetTransactions, historicalPrices, selectedProxy, cryptoCompareApiKey
                 );
-    
+
                 if (fetchErrors.length > 0) {
                     throw new Error(fetchErrors[0]);
                 }
-    
+
                 if (newPrices[assetSymbol]) {
                     setHistoricalPrices(prev => ({ ...prev, ...newPrices }));
                     assetHistory = newPrices[assetSymbol];
@@ -1248,14 +1142,14 @@ const App: React.FC = () => {
                     throw new Error(`Não foi possível obter dados históricos para ${assetSymbol}.`);
                 }
             } else if (!assetHistory && !cryptoCompareApiKey) {
-                 addToast(`Adicione uma chave da CryptoCompare para buscar o histórico de ${assetSymbol}.`, 'info');
+                addToast(`Adicione uma chave da CryptoCompare para buscar o histórico de ${assetSymbol}.`, 'info');
             }
-    
+
             let historicalPriceContext: string | null = null;
             if (assetHistory) {
                 const recentHistory: Record<string, number> = {};
                 const sortedDates = Object.keys(assetHistory).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-                
+
                 for (let i = 0; i < 14 && i < sortedDates.length; i++) {
                     const date = sortedDates[i];
                     const price = assetHistory[date];
@@ -1264,22 +1158,22 @@ const App: React.FC = () => {
                     }
                 }
                 if (Object.keys(recentHistory).length > 0) {
-                     historicalPriceContext = JSON.stringify(recentHistory, null, 2);
+                    historicalPriceContext = JSON.stringify(recentHistory, null, 2);
                 }
             }
-    
+
             const responseText = await generateMarketSentiment(geminiApiKey, assetSymbol, historicalPriceContext);
             const parsedResult = JSON.parse(responseText.trim());
-    
+
             if (
-                !parsedResult.sentiment || 
+                !parsedResult.sentiment ||
                 !parsedResult.summary ||
                 !Array.isArray(parsedResult.positive_points) ||
                 !Array.isArray(parsedResult.negative_points)
             ) {
                 throw new Error("A resposta da IA está em um formato inválido ou incompleto.");
             }
-    
+
             setSentimentAnalysisResult({ ...parsedResult, asset: assetSymbol });
         } catch (error) {
             console.error("Erro na análise de sentimento:", error);
@@ -1298,7 +1192,7 @@ const App: React.FC = () => {
 
     const handleConfirm = () => {
         if (!confirmationRequest) return;
-        
+
         if (confirmationRequest.isTransactionDelete) {
             if (deleteAllTxsChecked) {
                 handleDeleteAllTransactions();
@@ -1319,7 +1213,7 @@ const App: React.FC = () => {
         }
         setSelectedAssetSymbol(symbol);
     };
-    
+
     const handleBackToDashboard = () => {
         setSelectedAssetSymbol(null);
         setActiveSection(SectionEnum.Dashboard);
@@ -1328,21 +1222,21 @@ const App: React.FC = () => {
     const navigateToTransactions = () => {
         setActiveSection(SectionEnum.Transactions);
     };
-    
+
     const handleSetActiveSection = (section: Section) => {
         setSelectedAssetSymbol(null);
         setActiveSection(section);
     };
 
     const ownedAssetSymbols = useMemo(() => performanceData.map(p => p.symbol), [performanceData]);
-    
+
     const initialAllocations = useMemo(() => {
         const totalValue = performanceData.reduce((sum, asset) => sum + asset.currentValue, 0);
         const initial: Record<string, number> = {};
         if (totalValue > 0) {
-          performanceData.forEach(asset => {
-            initial[asset.symbol] = (asset.currentValue / totalValue) * 100;
-          });
+            performanceData.forEach(asset => {
+                initial[asset.symbol] = (asset.currentValue / totalValue) * 100;
+            });
         }
         return initial;
     }, [performanceData]);
@@ -1411,96 +1305,96 @@ const App: React.FC = () => {
 
         switch (activeSection) {
             case SectionEnum.Transactions:
-                return <TransactionsSection 
-                          transactions={activeTransactions}
-                          onAddTransaction={handleAddTransaction}
-                          onUpdateTransaction={handleUpdateTransaction}
-                          onDeleteTransaction={handleDeleteTransactionRequest}
-                          cryptoMap={cryptoMap}
-                          addToast={addToast}
-                          onImport={handleImportTransactions}
-                          accountNames={activeAccountNames}
-                          isMultiAccountView={isMultiAccountView}
-                       />;
+                return <TransactionsSection
+                    transactions={activeTransactions}
+                    onAddTransaction={handleAddTransaction}
+                    onUpdateTransaction={handleUpdateTransaction}
+                    onDeleteTransaction={handleDeleteTransactionRequest}
+                    cryptoMap={cryptoMap}
+                    addToast={addToast}
+                    onImport={handleImportTransactions}
+                    accountNames={activeAccountNames}
+                    isMultiAccountView={isMultiAccountView}
+                />;
             case SectionEnum.ProfitAnalysis:
-                return <ProfitAnalysisSection 
-                          analysisData={profitAnalysisData} 
-                          totalCostBasis={totalCostBasis}
-                          onViewDetails={handleViewAssetDetails}
-                          onNavigateToTransactions={navigateToTransactions}
-                       />;
+                return <ProfitAnalysisSection
+                    analysisData={profitAnalysisData}
+                    totalCostBasis={totalCostBasis}
+                    onViewDetails={handleViewAssetDetails}
+                    onNavigateToTransactions={navigateToTransactions}
+                />;
             case SectionEnum.PerformanceComparator:
                 return <PerformanceComparatorSection
-                          transactions={activeTransactions}
-                          profitAnalysisData={profitAnalysisData}
-                          historicalPrices={historicalPrices}
-                          onUpdateHistory={handleUpdateHistoricalData}
-                          isUpdatingHistory={isFetchingHistory}
-                          onNavigateToTransactions={navigateToTransactions}
-                          cryptoData={cryptoData}
-                          cryptoMap={cryptoMap}
-                          addToast={addToast}
-                          geminiApiKey={geminiApiKey}
-                          comparatorPlan={comparatorPlan}
-                          setComparatorPlan={setComparatorPlan}
-                          strategyPlan={strategyPlan}
-                          setStrategyPlan={setStrategyPlan}
-                          onClear={handleClearComparatorAndStrategy}
-                       />;
+                    transactions={activeTransactions}
+                    profitAnalysisData={profitAnalysisData}
+                    historicalPrices={historicalPrices}
+                    onUpdateHistory={handleUpdateHistoricalData}
+                    isUpdatingHistory={isFetchingHistory}
+                    onNavigateToTransactions={navigateToTransactions}
+                    cryptoData={cryptoData}
+                    cryptoMap={cryptoMap}
+                    addToast={addToast}
+                    geminiApiKey={geminiApiKey}
+                    comparatorPlan={comparatorPlan}
+                    setComparatorPlan={setComparatorPlan}
+                    strategyPlan={strategyPlan}
+                    setStrategyPlan={setStrategyPlan}
+                    onClear={handleClearComparatorAndStrategy}
+                />;
             case SectionEnum.Alerts:
-                return <AlertsSection 
-                          alerts={alerts}
-                          onAddAlert={handleAddAlert}
-                          onUpdateAlert={handleUpdateAlert}
-                          onReArmAlert={handleReArmAlert}
-                          onDeleteAlert={handleDeleteAlertRequest}
-                          cryptoMap={cryptoMap}
-                          cryptoData={cryptoData}
-                          onAlertAssetChange={setAlertFormAsset}
-                          addToast={addToast}
-                          totalPortfolioValue={totalPortfolioValue}
-                          totalUnrealizedProfit={totalUnrealizedProfit}
-                        />;
+                return <AlertsSection
+                    alerts={alerts}
+                    onAddAlert={handleAddAlert}
+                    onUpdateAlert={handleUpdateAlert}
+                    onReArmAlert={handleReArmAlert}
+                    onDeleteAlert={handleDeleteAlertRequest}
+                    cryptoMap={cryptoMap}
+                    cryptoData={cryptoData}
+                    onAlertAssetChange={setAlertFormAsset}
+                    addToast={addToast}
+                    totalPortfolioValue={totalPortfolioValue}
+                    totalUnrealizedProfit={totalUnrealizedProfit}
+                />;
             case SectionEnum.Watchlist:
-                 return <WatchlistSection
-                          watchlist={watchlist}
-                          onAdd={handleAddWatchlistItem}
-                          onRemove={handleRemoveWatchlistItemRequest}
-                          cryptoData={cryptoData}
-                          cryptoMap={cryptoMap}
-                          addToast={addToast}
-                          ownedAssets={ownedAssetSymbols}
-                          onViewDetails={handleViewAssetDetails}
-                        />;
+                return <WatchlistSection
+                    watchlist={watchlist}
+                    onAdd={handleAddWatchlistItem}
+                    onRemove={handleRemoveWatchlistItemRequest}
+                    cryptoData={cryptoData}
+                    cryptoMap={cryptoMap}
+                    addToast={addToast}
+                    ownedAssets={ownedAssetSymbols}
+                    onViewDetails={handleViewAssetDetails}
+                />;
             case SectionEnum.Taxes:
-                 return <TaxSection 
-                            transactions={activeTransactions}
-                            onNavigateToTransactions={navigateToTransactions}
-                        />;
+                return <TaxSection
+                    transactions={activeTransactions}
+                    onNavigateToTransactions={navigateToTransactions}
+                />;
             case SectionEnum.Rebalance:
-                 return <RebalanceSection
-                            performanceData={performanceData}
-                            profitAnalysisData={profitAnalysisData}
-                            onNavigateToTransactions={navigateToTransactions}
-                            cryptoMap={cryptoMap}
-                            transactions={activeTransactions}
-                            historicalPrices={historicalPrices}
-                            cryptoData={cryptoData}
-                            onUpdateHistory={handleUpdateHistoricalData}
-                            isUpdatingHistory={isFetchingHistory}
-                            onSymbolsChange={setRebalanceAssetSymbols}
-                            addToast={addToast}
-                            onOpenSettings={() => setSettingsModalOpen(true)}
-                            geminiApiKey={geminiApiKey}
-                            plan={rebalancePlan}
-                            setPlan={setRebalancePlan}
-                            onReset={handleResetRebalancePlan}
-                            onShare={handleShareText}
-                        />;
+                return <RebalanceSection
+                    performanceData={performanceData}
+                    profitAnalysisData={profitAnalysisData}
+                    onNavigateToTransactions={navigateToTransactions}
+                    cryptoMap={cryptoMap}
+                    transactions={activeTransactions}
+                    historicalPrices={historicalPrices}
+                    cryptoData={cryptoData}
+                    onUpdateHistory={handleUpdateHistoricalData}
+                    isUpdatingHistory={isFetchingHistory}
+                    onSymbolsChange={setRebalanceAssetSymbols}
+                    addToast={addToast}
+                    onOpenSettings={() => setSettingsModalOpen(true)}
+                    geminiApiKey={geminiApiKey}
+                    plan={rebalancePlan}
+                    setPlan={setRebalancePlan}
+                    onReset={handleResetRebalancePlan}
+                    onShare={handleShareText}
+                />;
             case SectionEnum.Dashboard:
             default:
-                return <DashboardSection 
-                    performanceData={performanceData} 
+                return <DashboardSection
+                    performanceData={performanceData}
                     profitAnalysisData={profitAnalysisData}
                     cryptoData={cryptoData}
                     transactions={activeTransactions}
@@ -1515,10 +1409,12 @@ const App: React.FC = () => {
                     sentimentResult={sentimentAnalysisResult}
                     sentimentError={sentimentAnalysisError}
                     onShare={handleShareText}
+                    isPrivacyMode={isPrivacyMode}
+                    setIsPrivacyMode={setIsPrivacyMode}
                 />;
         }
     };
-    
+
     const hasTriggeredAlerts = useMemo(() => alerts.some(a => a.triggered), [alerts]);
 
     return (
@@ -1529,25 +1425,25 @@ const App: React.FC = () => {
                     onNavigate={handleOnboardingNavigate}
                 />
             )}
-            <Header 
-              activeSection={activeSection} 
-              setActiveSection={handleSetActiveSection}
-              onAnalyze={handleAnalyzePortfolio}
-              isAnalyzing={isAnalyzing}
-              onOpenSettings={() => setSettingsModalOpen(true)}
-              accounts={accounts}
-              activeAccountIds={activeAccountIds}
-              onSelectAccountIds={setActiveAccountIds}
-              onRefreshPrices={handleManualRefresh}
-              isLoadingPrices={isLoadingPrices}
-              isAutoRefreshEnabled={isAutoRefreshEnabled}
-              onToggleAutoRefresh={setIsAutoRefreshEnabled}
-              lastUpdated={lastUpdated}
-              hasTriggeredAlerts={hasTriggeredAlerts}
-              onManageAccount={handleOpenAccountModal}
-              onDeleteAccount={handleDeleteAccountRequest}
-              addToast={addToast}
-              onOpenBriefingModal={handleOpenBriefingModal}
+            <Header
+                activeSection={activeSection}
+                setActiveSection={handleSetActiveSection}
+                onAnalyze={handleAnalyzePortfolio}
+                isAnalyzing={isAnalyzing}
+                onOpenSettings={() => setSettingsModalOpen(true)}
+                accounts={accounts}
+                activeAccountIds={activeAccountIds}
+                onSelectAccountIds={setActiveAccountIds}
+                onRefreshPrices={handleManualRefresh}
+                isLoadingPrices={isLoadingPrices}
+                isAutoRefreshEnabled={isAutoRefreshEnabled}
+                onToggleAutoRefresh={setIsAutoRefreshEnabled}
+                lastUpdated={lastUpdated}
+                hasTriggeredAlerts={hasTriggeredAlerts}
+                onManageAccount={handleOpenAccountModal}
+                onDeleteAccount={handleDeleteAccountRequest}
+                addToast={addToast}
+                onOpenBriefingModal={handleOpenBriefingModal}
             />
             <main className="max-w-7xl mx-auto p-4 md:p-6">
                 <CriticalAlertsBanner
@@ -1557,7 +1453,7 @@ const App: React.FC = () => {
                 />
                 {renderContent()}
             </main>
-            
+
             <div className="fixed bottom-4 right-4 z-[200] space-y-2 w-full max-w-sm overflow-x-hidden">
                 {toasts.map(toast => (
                     <ToastNotification key={toast.id} toast={toast} onDismiss={removeToast} />
@@ -1623,21 +1519,21 @@ const App: React.FC = () => {
                 onClose={() => setAnalysisModalOpen(false)}
                 title="Chat de Análise com IA"
             >
-                <AIChatView 
-                    history={chatHistory} 
-                    isThinking={isAnalyzing} 
+                <AIChatView
+                    history={chatHistory}
+                    isThinking={isAnalyzing}
                     onSendMessage={handleSendChatMessage}
                     isWebSearchEnabled={isWebSearchEnabled}
                     onWebSearchToggle={setIsWebSearchEnabled}
                     onShare={handleShareText}
                 />
             </Modal>
-            
+
             <Modal
                 isOpen={isBriefingModalOpen}
                 onClose={() => setIsBriefingModalOpen(false)}
                 title="Briefing Diário da IA"
-                 footer={
+                footer={
                     <>
                         <Button variant="secondary" onClick={() => setIsBriefingModalOpen(false)}>Fechar</Button>
                         {dailyBriefingContent && !isGeneratingBriefing && (
@@ -1665,14 +1561,14 @@ const App: React.FC = () => {
                         </div>
                     )}
                     {dailyBriefingContent && !isGeneratingBriefing && (
-                         <div
+                        <div
                             className="prose prose-invert prose-sm max-w-none text-indigo-100"
                             dangerouslySetInnerHTML={renderFormattedMessage(dailyBriefingContent)}
                         />
                     )}
                 </div>
             </Modal>
-            
+
             <SettingsModal
                 isOpen={isSettingsModalOpen}
                 onClose={() => setSettingsModalOpen(false)}
