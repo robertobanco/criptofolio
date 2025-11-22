@@ -5,8 +5,7 @@ Aplicativo de análise de portfólio de criptomoedas com IA.
 ## 🚀 Deploy no Vercel
 
 ### Pré-requisitos
-1. Conta no [Vercel](https://vercel.com)
-2. API Key do Google Gemini ([obter aqui](https://aistudio.google.com/app/apikey))
+- Conta no [Vercel](https://vercel.com)
 
 ### Passos para Deploy
 
@@ -16,15 +15,21 @@ Aplicativo de análise de portfólio de criptomoedas com IA.
    - Acesse [Vercel](https://vercel.com)
    - Clique em "Add New Project"
    - Selecione este repositório do GitHub
-   - Configure as variáveis de ambiente
 
-3. **Configure a variável de ambiente:**
-   - Nome: `GEMINI_API_KEY`
-   - Valor: Sua chave da API do Google Gemini
-
-4. **Deploy:**
+3. **Deploy:**
    - Clique em "Deploy"
    - Aguarde o build completar
+   - Pronto! Seu app estará no ar 🎉
+
+### 🔑 Configuração de API Keys
+
+**Não é necessário configurar variáveis de ambiente!** 
+
+O aplicativo solicita as seguintes chaves diretamente ao usuário na primeira vez que é aberto:
+- **Google Gemini API Key** - Para análise com IA ([obter aqui](https://aistudio.google.com/app/apikey))
+- **API Keys de Cotação de Criptomoedas** - Para dados em tempo real
+
+As chaves são armazenadas localmente no navegador do usuário (localStorage).
 
 ## 🛠️ Desenvolvimento Local
 
@@ -33,11 +38,6 @@ Aplicativo de análise de portfólio de criptomoedas com IA.
 ```bash
 # Instalar dependências
 npm install
-
-# Copiar arquivo de ambiente
-cp .env.example .env.local
-
-# Adicionar sua API key no arquivo .env.local
 ```
 
 ### Executar localmente
@@ -64,22 +64,18 @@ npm run preview
 - Recharts
 - Google Gemini AI
 
-## 🔑 Variáveis de Ambiente
+## 🔒 Segurança
 
-- `GEMINI_API_KEY`: Chave da API do Google Gemini (obrigatória)
-
-## 📝 Notas
-
-- O arquivo `.env.local` é ignorado pelo Git (não será enviado ao repositório)
-- Sempre configure as variáveis de ambiente no Vercel antes do deploy
-- A API key do Gemini é necessária para o funcionamento da IA
+- As API keys são armazenadas apenas no navegador do usuário (localStorage)
+- Nenhuma chave é enviada para servidores externos além das APIs oficiais
+- Cada usuário usa suas próprias credenciais
 
 ## 🐛 Troubleshooting
 
 ### Build falha no Vercel
-- Verifique se a variável `GEMINI_API_KEY` está configurada
 - Verifique os logs de build no dashboard do Vercel
+- Certifique-se de que todas as dependências estão no `package.json`
 
 ### Aplicativo não carrega
 - Verifique o console do navegador para erros
-- Confirme que a API key está válida
+- Certifique-se de ter inserido as API keys corretamente quando solicitado
