@@ -8,12 +8,15 @@ export interface GenerateContentResponse {
     candidates?: any[];
 }
 
+// Lista de modelos para tentar em ordem de preferência
+const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+
 // Helper para tentar executar uma ação com fallback de múltiplos modelos
 async function executeWithFallback(
     genAI: GoogleGenerativeAI,
     action: (modelName: string) => Promise<string>
 ): Promise<string> {
-    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+    const modelsToTry = MODELS_TO_TRY;
     let lastError: any;
 
     for (const modelName of modelsToTry) {
@@ -137,6 +140,12 @@ export const generateChatResponse = async (apiKey: string, chatHistory: ChatMess
             const lastMessage = history.pop();
             if (!lastMessage) throw new Error("Conversa vazia.");
 
+            // IMPORTANTE: A API Gemini exige que o histórico comece com 'user'
+            // Se após remover a última mensagem, o histórico começar com 'model', removemos até encontrar 'user'
+            while (history.length > 0 && history[0].role === 'model') {
+                history.shift(); // Remove a primeira mensagem se for 'model'
+            }
+
             const chat = model.startChat({
                 history: history,
                 generationConfig: {
@@ -235,16 +244,11 @@ export const startRebalanceChat = (apiKey: string, portfolioContext: string, loc
     Ao final, forneça JSON { "TICKER": % }.
     Contexto: ${portfolioContext}`;
 
-    // Para o chat, retornamos o objeto chat diretamente.
-    // O fallback aqui é mais complexo, então vamos simplificar:
-    // Tentamos criar o chat com o modelo padrão. Se falhar na primeira mensagem, o usuário terá que reiniciar.
-    // Mas podemos tentar instanciar o modelo aqui.
+    // Usar o primeiro modelo disponível da lista de fallback
+    const modelName = MODELS_TO_TRY[0];
 
-    // NOTA: startChat não faz chamada de rede, então não vai falhar aqui com 404.
-    // O erro vai acontecer no sendMessage.
-    // Por isso, vamos usar o modelo Flash padrão aqui.
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: modelName,
         systemInstruction: systemInstruction
     });
 
