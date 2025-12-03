@@ -146,11 +146,15 @@ export const generateChatResponse = async (
     1. O campo "priceChange24h" em cada ativo mostra a variação nas ÚLTIMAS 24 HORAS. Use ESTE campo para identificar variações recentes.
     2. NÃO confunda com "variation" que é a variação acumulada desde a compra.
     3. Identifique os ativos com maior priceChange24h (positivo) e menor priceChange24h (negativo).
-    4. Para cada ativo com |priceChange24h| > 5%, USE A BUSCA DO GOOGLE para encontrar notícias das últimas 24-48h.
+    ${enableWebSearch ?
+            `4. Para cada ativo com |priceChange24h| > 5%, USE A BUSCA DO GOOGLE para encontrar notícias das últimas 24-48h.
     5. Quando encontrar notícias, cite-as com links COMPLETOS: [Título da Notícia](URL_completa)
     6. Se encontrar MÚLTIPLAS fontes sobre o mesmo ativo, cite TODAS.
     7. Se não encontrar nada específico, mencione o movimento geral do mercado.
-    8. OBRIGATÓRIO: Sempre inclua URLs reais dos resultados da busca.
+    8. OBRIGATÓRIO: Sempre inclua URLs reais dos resultados da busca.` :
+            `4. Analise as variações com base nos dados históricos do portfólio fornecidos.
+    5. Explique possíveis causas gerais (tendências de mercado, correlação com Bitcoin, etc.).
+    6. NÃO invente notícias ou eventos. Use apenas os dados disponíveis no contexto do portfólio.`}
     
     Responda em Markdown com formatação clara.`;
 
