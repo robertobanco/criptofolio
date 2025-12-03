@@ -67,6 +67,10 @@ export const calculateProfitAnalysis = (transactions: Transaction[], cryptoData:
                 asset.realizedProfit += tx.quantity * (tx.value - asset.averageBuyPrice);
             }
             asset.remainingQuantity = asset.totalBought - asset.totalSold;
+            // Clamp to 0 to avoid negative quantities (short positions) which are not supported in the history graph
+            if (asset.remainingQuantity < 1e-8) {
+                asset.remainingQuantity = 0;
+            }
             profitMap.set(tx.asset, asset);
         });
 
@@ -77,7 +81,7 @@ export const calculateProfitAnalysis = (transactions: Transaction[], cryptoData:
         const totalProfit = data.realizedProfit + unrealizedProfit;
         const totalCostBasis = data.totalBought * data.averageBuyPrice;
         const totalVariation = totalCostBasis > 0 ? (totalProfit / totalCostBasis) * 100 : 0;
-        
+
         analysisData.push({
             ...data,
             currentPrice,
@@ -105,11 +109,11 @@ export const calculateProfitAnalysisMetrics = (analysisData: ProfitAnalysisData[
     const winRate = assetsWithClosedPositions.length > 0
         ? (profitableClosedPositions.length / assetsWithClosedPositions.length) * 100
         : 0;
-    
+
     let bestAsset: ProfitAnalysisData | null = null;
     let worstAsset: ProfitAnalysisData | null = null;
-    
-    for(const asset of analysisData) {
+
+    for (const asset of analysisData) {
         if (!bestAsset || asset.totalProfit > bestAsset.totalProfit) {
             bestAsset = asset;
         }
@@ -160,7 +164,7 @@ const calculateHistory = (transactions: Transaction[], historicalPrices: Histori
 
     for (let d = firstDate; d <= today; d.setUTCDate(d.getUTCDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
-        
+
         // Process transactions for the current day
         if (transactionsByDate.has(dateStr)) {
             transactionsByDate.get(dateStr)!.forEach(tx => {
@@ -173,12 +177,12 @@ const calculateHistory = (transactions: Transaction[], historicalPrices: Histori
                     const avgCost = asset.quantity > 0 ? asset.invested / asset.quantity : 0;
                     const costOfSale = tx.quantity * avgCost;
                     const investedToRemove = costOfSale > asset.invested ? asset.invested : costOfSale;
-                    
+
                     asset.invested -= investedToRemove;
                     asset.quantity -= tx.quantity;
                     currentInvested -= investedToRemove;
                 }
-                
+
                 if (asset.quantity < 1e-8) {
                     asset.quantity = 0;
                     asset.invested = 0;
@@ -201,13 +205,18 @@ const calculateHistory = (transactions: Transaction[], historicalPrices: Histori
                 if (price !== undefined && price !== null && price > 0) {
                     // Price is available and valid, use it for market value calculation.
                     currentMarketValue += data.quantity * price;
-                     if (isSingleAssetMode) {
+                    if (isSingleAssetMode) {
                         priceForPoint = price;
                     }
                 } else {
-                    // Price is NOT available for this day or is invalid (0). Use the asset's cost basis as a fallback.
-                    // data.invested represents the total cost for the current quantity.
-                    currentMarketValue += data.invested;
+                    // Price is NOT available.
+                    // If it's TODAY, we must match the Dashboard logic (which assumes 0 if no price).
+                    // Otherwise, for historical data, we use cost basis to avoid ugly gaps in the chart.
+                    if (isToday) {
+                        currentMarketValue += 0;
+                    } else {
+                        currentMarketValue += data.invested;
+                    }
                 }
             }
         }
@@ -265,7 +274,7 @@ export const calculateAllAssetsHistoricalValues = (
 
     for (let d = firstDate; d <= today; d.setUTCDate(d.getUTCDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
-        
+
         // Process transactions for the current day
         if (transactionsByDate.has(dateStr)) {
             transactionsByDate.get(dateStr)!.forEach(tx => {
@@ -277,11 +286,11 @@ export const calculateAllAssetsHistoricalValues = (
                     const avgCost = asset.quantity > 0 ? asset.invested / asset.quantity : 0;
                     const costOfSale = tx.quantity * avgCost;
                     const investedToRemove = costOfSale > asset.invested ? asset.invested : costOfSale;
-                    
+
                     asset.invested -= investedToRemove;
                     asset.quantity -= tx.quantity;
                 }
-                
+
                 if (asset.quantity < 1e-8) {
                     asset.quantity = 0;
                     asset.invested = 0;
@@ -301,13 +310,17 @@ export const calculateAllAssetsHistoricalValues = (
                 if (price !== undefined && price !== null && price > 0) {
                     result[symbol][dateStr] = data.quantity * price;
                 } else {
-                    // Fallback to invested value if price is not available or is invalid (0)
-                    result[symbol][dateStr] = data.invested;
+                    // Fallback logic aligned with Dashboard
+                    if (isToday) {
+                        result[symbol][dateStr] = 0;
+                    } else {
+                        result[symbol][dateStr] = data.invested;
+                    }
                 }
             }
         }
     }
-    
+
     return result;
 };
 
@@ -316,7 +329,7 @@ export const calculateMultipleAssetHistoryNormalized = (
     assetSymbols: string[],
     historicalPrices: HistoricalPrices,
     timeRangeInDays?: number
-): { date: string; [key: string]: number | string }[] => {
+): { date: string;[key: string]: number | string }[] => {
     if (assetSymbols.length === 0) {
         return [];
     }
@@ -345,12 +358,12 @@ export const calculateMultipleAssetHistoryNormalized = (
 
     if (chartDates.length === 0) return [];
 
-    const normalizedData: { date: string; [key: string]: number | string }[] = [];
+    const normalizedData: { date: string;[key: string]: number | string }[] = [];
     const baselinePrices = new Map<string, number>();
 
     // 3. Iterate through the chart dates to build the normalized data points.
     for (const date of chartDates) {
-        const point: { date: string; [key: string]: number | string } = { date };
+        const point: { date: string;[key: string]: number | string } = { date };
         let hasDataForPoint = false;
 
         for (const symbol of assetSymbols) {
@@ -377,7 +390,7 @@ export const calculateMultipleAssetHistoryNormalized = (
             normalizedData.push(point);
         }
     }
-    
+
     return normalizedData;
 };
 
@@ -387,9 +400,9 @@ export const calculateMultipleAssetHistoryByCostBasis = (
     profitAnalysisData: ProfitAnalysisData[],
     historicalPrices: HistoricalPrices,
     timeRangeInDays?: number
-): { date: string; [key: string]: number | string }[] => {
+): { date: string;[key: string]: number | string }[] => {
     if (assetSymbols.length === 0) return [];
-    
+
     const analysisMap = new Map(profitAnalysisData.map(d => [d.symbol, d]));
 
     let allDates = Array.from(new Set(Object.values(historicalPrices).flatMap(h => h ? Object.keys(h) : [])));
@@ -403,16 +416,16 @@ export const calculateMultipleAssetHistoryByCostBasis = (
     }
     if (allDates.length === 0) return [];
 
-    const resultData: { date: string; [key: string]: number | string }[] = [];
+    const resultData: { date: string;[key: string]: number | string }[] = [];
 
     for (const date of allDates) {
-        const point: { date: string; [key: string]: number | string } = { date };
+        const point: { date: string;[key: string]: number | string } = { date };
         let hasData = false;
 
         for (const symbol of assetSymbols) {
             const analysis = analysisMap.get(symbol);
             const priceOnDate = historicalPrices[symbol]?.[date];
-            
+
             if (analysis && analysis.averageBuyPrice > 0 && typeof priceOnDate === 'number') {
                 const performance = (priceOnDate / analysis.averageBuyPrice - 1) * 100;
                 point[symbol] = performance;
@@ -424,7 +437,7 @@ export const calculateMultipleAssetHistoryByCostBasis = (
             resultData.push(point);
         }
     }
-    
+
     return resultData;
 };
 
@@ -476,7 +489,7 @@ export const calculateTaxReport = (transactions: Transaction[], year: number): A
         }
         assetCostBasis.set(tx.asset, basis);
     }
-    
+
     let totalTaxDue = 0;
     let totalTaxableSales = 0;
     let taxableMonthsCount = 0;
@@ -503,95 +516,95 @@ export const calculateTaxReport = (transactions: Transaction[], year: number): A
 };
 
 export const calculateRebalanceSuggestions = (
-  performanceData: AssetPerformance[],
-  targetAllocations: Record<string, number>,
-  cryptoData: CryptoData,
-  capitalChange: number = 0,
-  anchoredAssets: Record<string, boolean> = {}
+    performanceData: AssetPerformance[],
+    targetAllocations: Record<string, number>,
+    cryptoData: CryptoData,
+    capitalChange: number = 0,
+    anchoredAssets: Record<string, boolean> = {}
 ): RebalanceSuggestion[] => {
-  
-  const currentTotalPortfolioValue = performanceData.reduce((sum, asset) => sum + asset.currentValue, 0);
 
-  // 1. Separate anchored assets and calculate their total value
-  const totalAnchoredValue = performanceData
-    .filter(p => anchoredAssets[p.symbol])
-    .reduce((sum, asset) => sum + asset.currentValue, 0);
+    const currentTotalPortfolioValue = performanceData.reduce((sum, asset) => sum + asset.currentValue, 0);
 
-  // 2. Define the portion of the portfolio that is available for rebalancing
-  const rebalanceableCurrentValue = currentTotalPortfolioValue - totalAnchoredValue;
-  const rebalanceableTargetValue = currentTotalPortfolioValue + capitalChange - totalAnchoredValue;
+    // 1. Separate anchored assets and calculate their total value
+    const totalAnchoredValue = performanceData
+        .filter(p => anchoredAssets[p.symbol])
+        .reduce((sum, asset) => sum + asset.currentValue, 0);
 
-  if (rebalanceableTargetValue <= 0) {
-    // If only anchored assets remain or the withdrawal makes the rest negative, only suggest selling non-anchored assets if necessary.
-     return performanceData
-      .filter(p => !anchoredAssets[p.symbol] && p.currentValue > 0)
-      .map(p => ({
-        symbol: p.symbol,
-        action: 'sell',
-        amountBRL: p.currentValue,
-        quantity: p.totalQuantity,
-        currentValue: p.currentValue,
-        targetValue: 0,
-        currentAllocation: (p.currentValue / currentTotalPortfolioValue) * 100,
-        targetAllocation: 0,
-      }));
-  }
+    // 2. Define the portion of the portfolio that is available for rebalancing
+    const rebalanceableCurrentValue = currentTotalPortfolioValue - totalAnchoredValue;
+    const rebalanceableTargetValue = currentTotalPortfolioValue + capitalChange - totalAnchoredValue;
 
-  // 3. Normalize the target percentages for only the rebalanceable assets
-  const rebalanceableSymbols = Object.keys(targetAllocations).filter(symbol => !anchoredAssets[symbol]);
-  const totalTargetPercentForRebalance = rebalanceableSymbols.reduce((sum, symbol) => sum + (targetAllocations[symbol] || 0), 0);
-
-  const suggestions: RebalanceSuggestion[] = [];
-  const allSymbols = Array.from(new Set([...performanceData.map(p => p.symbol), ...Object.keys(targetAllocations)]));
-
-  for (const symbol of allSymbols) {
-    // ANCHORED assets are skipped entirely. No buy/sell actions for them.
-    if (anchoredAssets[symbol]) {
-        continue;
+    if (rebalanceableTargetValue <= 0) {
+        // If only anchored assets remain or the withdrawal makes the rest negative, only suggest selling non-anchored assets if necessary.
+        return performanceData
+            .filter(p => !anchoredAssets[p.symbol] && p.currentValue > 0)
+            .map(p => ({
+                symbol: p.symbol,
+                action: 'sell',
+                amountBRL: p.currentValue,
+                quantity: p.totalQuantity,
+                currentValue: p.currentValue,
+                targetValue: 0,
+                currentAllocation: (p.currentValue / currentTotalPortfolioValue) * 100,
+                targetAllocation: 0,
+            }));
     }
 
-    const asset = performanceData.find(p => p.symbol === symbol);
-    const currentValue = asset?.currentValue ?? 0;
-    const currentAllocation = currentTotalPortfolioValue > 0 ? (currentValue / currentTotalPortfolioValue) * 100 : 0;
-    
-    let targetValue = 0;
-    let targetAllocation = targetAllocations[symbol] ?? 0;
+    // 3. Normalize the target percentages for only the rebalanceable assets
+    const rebalanceableSymbols = Object.keys(targetAllocations).filter(symbol => !anchoredAssets[symbol]);
+    const totalTargetPercentForRebalance = rebalanceableSymbols.reduce((sum, symbol) => sum + (targetAllocations[symbol] || 0), 0);
 
-    // 4. Calculate target value based on the rebalanceable part of the portfolio
-    if (totalTargetPercentForRebalance > 0) {
-        const effectiveTargetPercent = (targetAllocations[symbol] || 0) / totalTargetPercentForRebalance;
-        targetValue = rebalanceableTargetValue * effectiveTargetPercent;
+    const suggestions: RebalanceSuggestion[] = [];
+    const allSymbols = Array.from(new Set([...performanceData.map(p => p.symbol), ...Object.keys(targetAllocations)]));
+
+    for (const symbol of allSymbols) {
+        // ANCHORED assets are skipped entirely. No buy/sell actions for them.
+        if (anchoredAssets[symbol]) {
+            continue;
+        }
+
+        const asset = performanceData.find(p => p.symbol === symbol);
+        const currentValue = asset?.currentValue ?? 0;
+        const currentAllocation = currentTotalPortfolioValue > 0 ? (currentValue / currentTotalPortfolioValue) * 100 : 0;
+
+        let targetValue = 0;
+        let targetAllocation = targetAllocations[symbol] ?? 0;
+
+        // 4. Calculate target value based on the rebalanceable part of the portfolio
+        if (totalTargetPercentForRebalance > 0) {
+            const effectiveTargetPercent = (targetAllocations[symbol] || 0) / totalTargetPercentForRebalance;
+            targetValue = rebalanceableTargetValue * effectiveTargetPercent;
+        }
+
+        const differenceBRL = targetValue - currentValue;
+        const currentPrice = asset?.totalQuantity > 0 ? asset.currentValue / asset.totalQuantity : cryptoData[symbol]?.price;
+
+        if (!currentPrice && differenceBRL > 0) {
+            console.warn(`Cannot suggest buying ${symbol} without price data.`);
+            continue;
+        }
+
+        const quantity = currentPrice && currentPrice > 0 ? differenceBRL / currentPrice : 0;
+
+        if (Math.abs(differenceBRL) > 0.01) {
+            suggestions.push({
+                symbol,
+                action: differenceBRL > 0 ? 'buy' : 'sell',
+                amountBRL: Math.abs(differenceBRL),
+                quantity: Math.abs(quantity),
+                currentValue,
+                targetValue,
+                currentAllocation,
+                targetAllocation,
+            });
+        }
     }
 
-    const differenceBRL = targetValue - currentValue;
-    const currentPrice = asset?.totalQuantity > 0 ? asset.currentValue / asset.totalQuantity : cryptoData[symbol]?.price;
-
-    if (!currentPrice && differenceBRL > 0) {
-        console.warn(`Cannot suggest buying ${symbol} without price data.`);
-        continue;
-    }
-
-    const quantity = currentPrice && currentPrice > 0 ? differenceBRL / currentPrice : 0;
-
-    if (Math.abs(differenceBRL) > 0.01) {
-        suggestions.push({
-            symbol,
-            action: differenceBRL > 0 ? 'buy' : 'sell',
-            amountBRL: Math.abs(differenceBRL),
-            quantity: Math.abs(quantity),
-            currentValue,
-            targetValue,
-            currentAllocation,
-            targetAllocation,
-        });
-    }
-  }
-
-  return suggestions.sort((a, b) => {
-    if (a.action === 'sell' && b.action === 'buy') return -1;
-    if (a.action === 'buy' && b.action === 'sell') return 1;
-    return b.amountBRL - a.amountBRL;
-  });
+    return suggestions.sort((a, b) => {
+        if (a.action === 'sell' && b.action === 'buy') return -1;
+        if (a.action === 'buy' && b.action === 'sell') return 1;
+        return b.amountBRL - a.amountBRL;
+    });
 };
 
 // Helper to get a price for a specific date, returning null if not found
@@ -648,7 +661,7 @@ export const calculateSimulatedPortfolioHistory = (
                 appreciatedValue += simulatedQuantities[symbol] * lastKnownPrices[symbol];
             }
         }
-        
+
         let currentMarketValue = appreciatedValue;
         const capitalChange = point.investedValue - prevPoint.investedValue;
 
@@ -656,11 +669,11 @@ export const calculateSimulatedPortfolioHistory = (
         if (Math.abs(capitalChange) > 0.01) { // Use a small threshold for float precision
             const valueToRebalance = appreciatedValue + capitalChange;
             currentMarketValue = valueToRebalance;
-            
+
             const newSimulatedQuantities: Record<string, number> = {};
             for (const symbol in suggestion) {
                 const rebalancePrice = getPrice(historicalPrices, symbol, point.date) ?? lastKnownPrices[symbol];
-                
+
                 if (rebalancePrice && rebalancePrice > 0) {
                     const targetValue = valueToRebalance * (suggestion[symbol] / 100);
                     newSimulatedQuantities[symbol] = targetValue / rebalancePrice;
@@ -670,7 +683,7 @@ export const calculateSimulatedPortfolioHistory = (
             }
             simulatedQuantities = newSimulatedQuantities;
         }
-        
+
         simulatedHistory.push({ date: point.date, marketValue: currentMarketValue });
     }
     return simulatedHistory;

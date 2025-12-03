@@ -166,7 +166,7 @@ const App: React.FC = () => {
 
     const [isAnalysisModalOpen, setAnalysisModalOpen] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false); // For Chat
-    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
     const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
 
     const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -695,7 +695,7 @@ const App: React.FC = () => {
 
     }, [cryptoData, alerts, setAlerts, addToast, totalPortfolioValue, totalUnrealizedProfit, areNotificationsEnabled, notificationSound, lastUpdated, debouncedUniqueSymbols, hasSpecialAlerts]);
 
-    // Daily check for critical AI-driven alerts
+    // Verificação diária de alertas críticos (notícias importantes)
     useEffect(() => {
         const runCriticalAlertCheck = async () => {
             const ownedAssets = performanceData.map(p => p.symbol);
@@ -703,38 +703,36 @@ const App: React.FC = () => {
                 setLastCriticalAlertCheck(Date.now());
                 return;
             }
+
             setIsCheckingCriticalAlerts(true);
-            addToast("IA está verificando notícias críticas sobre seus ativos...", "info");
+
             try {
-                const responseText = await generateCriticalAlerts(geminiApiKey, ownedAssets);
+                // 1. Buscar notícias gerais (RSS + API)
+                const { fetchCryptoNews } = await import('./services/newsService');
+                const newsContext = await fetchCryptoNews(ownedAssets, 15); // Buscar 15 notícias para ter bom contexto
 
-                let newAlerts: CriticalAlert[] = [];
-                const jsonMatch = responseText.match(/(\[[\s\S]*?\])/);
-                const jsonString = jsonMatch ? jsonMatch[0] : responseText.trim();
+                // 2. Usar IA para analisar, filtrar e traduzir
+                const { analyzeCriticalNews } = await import('./services/geminiService');
+                const aiAlerts = await analyzeCriticalNews(geminiApiKey, newsContext, ownedAssets);
 
-                if (jsonString.startsWith('[')) {
-                    try {
-                        newAlerts = JSON.parse(jsonString) as CriticalAlert[];
-                    } catch (parseError) {
-                        console.warn("Falha ao analisar JSON de alertas críticos, tratando como nenhum alerta encontrado.", { jsonString, parseError });
-                        newAlerts = [];
-                    }
-                } else {
-                    console.warn("Resposta de alertas críticos não era um array JSON, tratando como nenhum alerta encontrado.", { responseText });
-                    newAlerts = [];
-                }
+                if (aiAlerts.length > 0) {
+                    const newAlerts: CriticalAlert[] = aiAlerts.map(alert => ({
+                        asset: alert.asset,
+                        severity: 'Alta', // Forçar 'Alta' para garantir compatibilidade com CriticalAlert
+                        summary: alert.summary,
+                        source: alert.sourceUrl ? 'IA Analysis + Web' : 'Cripto Control AI'
+                    }));
 
-                if (newAlerts.length > 0) {
                     setCriticalAlerts(newAlerts);
-                    addToast(`IA encontrou ${newAlerts.length} alerta(s) crítico(s) para sua carteira!`, 'error');
+                    addToast(`⚠️ ${newAlerts.length} alerta(s) crítico(s) identificado(s) pela IA!`, 'info');
                 } else {
                     setCriticalAlerts([]);
-                    addToast("Verificação concluída. Nenhum alerta crítico novo encontrado.", "success");
                 }
+
                 setLastCriticalAlertCheck(Date.now());
             } catch (error) {
-                console.error("Falha na verificação de alertas críticos:", error);
-                addToast("Não foi possível verificar os alertas críticos da IA.", "error");
+                console.warn("Não foi possível verificar alertas críticos:", error);
+                setLastCriticalAlertCheck(Date.now());
             } finally {
                 setIsCheckingCriticalAlerts(false);
             }
@@ -745,7 +743,7 @@ const App: React.FC = () => {
         if (!lastCriticalAlertCheck || (now - lastCriticalAlertCheck) > TWENTY_FOUR_HOURS_IN_MS) {
             runCriticalAlertCheck();
         }
-    }, [performanceData, geminiApiKey, lastCriticalAlertCheck, setLastCriticalAlertCheck, setCriticalAlerts, addToast]);
+    }, [performanceData, lastCriticalAlertCheck, setLastCriticalAlertCheck, setCriticalAlerts, addToast]);
 
 
     const handleAddTransaction = (tx: Omit<Transaction, 'id'>) => {
@@ -999,6 +997,13 @@ const App: React.FC = () => {
         setAnalysisModalOpen(true);
     };
 
+    const handleClearChatHistory = () => {
+        setChatHistory([
+            { role: 'model', parts: [{ text: "Olá! Eu sou o Cripto Control AI. Estou pronto para analisar sua carteira, incluindo os ativos na sua watchlist. Sobre o que você gostaria de saber?" }] }
+        ]);
+        addToast('Conversa limpa com sucesso!', 'info');
+    };
+
     const handleOpenBriefingModal = useCallback(async () => {
         setIsBriefingModalOpen(true);
         if (dailyBriefingContent || isGeneratingBriefing) {
@@ -1041,16 +1046,38 @@ const App: React.FC = () => {
         setChatHistory(currentHistory);
         setIsAnalyzing(true);
 
-        // Avisar o usuário se a busca web está ativada (pode demorar mais)
+
+        // Busca de notícias (Reativada com CryptoCompare + Proxy)
+        let newsContext: string | undefined;
         if (webSearchEnabled) {
-            addToast('Buscando informações online... Você pode navegar pelo app, avisaremos quando a resposta estiver pronta.', 'info');
+            try {
+                addToast('Buscando notícias em tempo real...', 'info');
+                const { fetchCryptoNews } = await import('./services/newsService');
+                const symbols = performanceData.map(p => p.symbol);
+                newsContext = await fetchCryptoNews(symbols, 10);
+                console.log('✅ Notícias obtidas com sucesso');
+            } catch (error: any) {
+                console.warn('⚠️ Falha na busca de notícias:', error.message);
+                addToast('Não foi possível buscar notícias externas (bloqueio de rede).', 'error');
+            }
         }
 
         try {
             for (let i = 0; i < 3; i++) { // Max 3 retries for data fetching
-                const response = await generateChatResponse(geminiApiKey, currentHistory, getPortfolioSummary(), webSearchEnabled);
+                const response = await generateChatResponse(
+                    geminiApiKey,
+                    currentHistory,
+                    getPortfolioSummary(),
+                    webSearchEnabled,
+                    newsContext
+                );
 
                 let responseText = response.text;
+
+                if (!responseText || responseText.trim().length === 0) {
+                    console.error('Resposta vazia da IA!');
+                    throw new Error('A IA retornou uma resposta vazia.');
+                }
 
                 const jsonBlockRegex = /```json\n([\s\S]*?)\n```/;
                 const codeBlockMatch = responseText.match(jsonBlockRegex);
@@ -1549,6 +1576,7 @@ const App: React.FC = () => {
                     isWebSearchEnabled={isWebSearchEnabled}
                     onWebSearchToggle={setIsWebSearchEnabled}
                     onShare={handleShareText}
+                    onClearHistory={handleClearChatHistory}
                 />
             </Modal>
 

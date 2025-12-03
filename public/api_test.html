@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API & RSS Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .result {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        .success {
+            background: #1b5e20;
+            border-color: #2e7d32;
+        }
+
+        .error {
+            background: #b71c1c;
+            border-color: #c62828;
+        }
+
+        .pending {
+            background: #f57f17;
+            color: #000;
+        }
+
+        h2 {
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+            margin-top: 20px;
+        }
+
+        pre {
+            background: #000;
+            padding: 5px;
+            overflow-x: auto;
+            font-size: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Teste de Fontes de Notícias (APIs + RSS)</h1>
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+
+        function log(name, status, message, details = null) {
+            const div = document.createElement('div');
+            div.className = `result ${status}`;
+            let html = `<strong>${name}</strong>: ${status.toUpperCase()} - ${message}`;
+            if (details) {
+                html += `<pre>${JSON.stringify(details, null, 2).substring(0, 300)}...</pre>`;
+            }
+            div.innerHTML = html;
+            resultsDiv.appendChild(div);
+        }
+
+        async function testRSS(name, rssUrl) {
+            const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+            log(name, 'pending', 'Testando RSS via rss2json...');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`Status ${response.status}`);
+
+                const data = await response.json();
+
+                if (data.status === 'ok' && data.items && data.items.length > 0) {
+                    log(name, 'success', `Sucesso! ${data.items.length} notícias encontradas.`, data.items[0]);
+                    return true;
+                } else {
+                    throw new Error('RSS retornou status erro ou sem itens');
+                }
+            } catch (error) {
+                log(name, 'error', error.message);
+                return false;
+            }
+        }
+
+        async function runTests() {
+            // 1. CoinDesk RSS
+            await testRSS('CoinDesk', 'https://www.coindesk.com/arc/outboundfeeds/rss/');
+
+            // 2. Cointelegraph RSS
+            await testRSS('Cointelegraph', 'https://cointelegraph.com/rss');
+
+            // 3. Decrypt RSS
+            await testRSS('Decrypt', 'https://decrypt.co/feed');
+
+            // 4. Bitcoin.com RSS
+            await testRSS('Bitcoin.com', 'https://news.bitcoin.com/feed/');
+
+            // 5. CryptoPotato RSS
+            await testRSS('CryptoPotato', 'https://cryptopotato.com/feed/');
+        }
+
+        runTests();
+    </script>
+</body>
+
+</html>

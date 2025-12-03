@@ -12,6 +12,7 @@ interface AIChatViewProps {
   isWebSearchEnabled: boolean;
   onWebSearchToggle: (enabled: boolean) => void;
   onShare: (text: string, title?: string) => void;
+  onClearHistory: () => void;
 }
 
 interface SuggestedQuestion {
@@ -46,7 +47,7 @@ const renderFormattedMessage = (text: string) => {
 };
 
 
-const AIChatView: React.FC<AIChatViewProps> = ({ history, isThinking, onSendMessage, isWebSearchEnabled, onWebSearchToggle, onShare }) => {
+const AIChatView: React.FC<AIChatViewProps> = ({ history, isThinking, onSendMessage, isWebSearchEnabled, onWebSearchToggle, onShare, onClearHistory }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -155,18 +156,31 @@ const AIChatView: React.FC<AIChatViewProps> = ({ history, isThinking, onSendMess
             Enviar
           </Button>
         </div>
-        <div className="flex items-center justify-center pt-2">
-          <input
-            id="web-search-toggle"
-            type="checkbox"
-            checked={isWebSearchEnabled}
-            onChange={(e) => onWebSearchToggle(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-gray-800"
-            disabled={isThinking}
-          />
-          <label htmlFor="web-search-toggle" className="ml-2 text-sm text-gray-400">
-            Buscar na Web (para notícias e eventos recentes)
-          </label>
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center">
+            <input
+              id="web-search-toggle"
+              type="checkbox"
+              checked={isWebSearchEnabled}
+              onChange={(e) => onWebSearchToggle(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-gray-800"
+              disabled={isThinking}
+            />
+            <label htmlFor="web-search-toggle" className="ml-2 text-sm text-gray-400">
+              Buscar na Web (para notícias e eventos recentes)
+            </label>
+          </div>
+          {displayedHistory.length > 1 && (
+            <button
+              onClick={onClearHistory}
+              disabled={isThinking}
+              className="text-xs text-gray-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+              title="Limpar conversa"
+            >
+              <i className="fas fa-trash-alt"></i>
+              Limpar Conversa
+            </button>
+          )}
         </div>
       </div>
     </div>

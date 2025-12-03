@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste CMC Map</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        pre {
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+        }
+
+        .success {
+            color: #4ade80;
+        }
+
+        .error {
+            color: #f87171;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Teste de Mapeamento CoinMarketCap</h1>
+    <div id="status">Lendo chave API...</div>
+    <div id="result"></div>
+
+    <script>
+        const runTest = async () => {
+            const apiKey = localStorage.getItem('cmcApiKey')?.replace(/"/g, '');
+            const proxy = localStorage.getItem('selectedProxy')?.replace(/"/g, '') || 'corsproxy.io';
+
+            if (!apiKey) {
+                document.getElementById('status').innerHTML = '<span class="error">Erro: Chave API da CMC não encontrada no LocalStorage. Configure no app primeiro.</span>';
+                return;
+            }
+
+            document.getElementById('status').innerHTML = 'Buscando mapa de criptomoedas... (pode demorar um pouco)';
+
+            try {
+                // Usar o mesmo proxy do app
+                const targetUrl = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/map';
+                let url = '';
+
+                if (proxy === 'corsproxy.io') {
+                    url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                } else if (proxy === 'allorigins') {
+                    url = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                } else {
+                    url = targetUrl; // Direto (vai falhar por CORS se não tiver extensão)
+                }
+
+                const response = await fetch(url, {
+                    headers: {
+                        'X-CMC_PRO_API_KEY': apiKey,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.status && data.status.error_code !== 0) {
+                    throw new Error(data.status.error_message);
+                }
+
+                const items = data.data;
+                const babyDoge = items.filter(i => i.name.toLowerCase().includes('baby') && i.name.toLowerCase().includes('doge'));
+
+                let html = `<h3>Encontrados ${babyDoge.length} ativos relacionados a "BabyDoge":</h3>`;
+
+                babyDoge.forEach(coin => {
+                    html += `<pre>
+Name: ${coin.name}
+Symbol: ${coin.symbol} (Char codes: ${coin.symbol.split('').map(c => c.charCodeAt(0)).join(',')})
+Slug: ${coin.slug}
+ID: ${coin.id}
+Is Active: ${coin.is_active}
+</pre>`;
+                });
+
+                document.getElementById('result').innerHTML = html;
+                document.getElementById('status').innerHTML = '<span class="success">Busca concluída!</span>';
+
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<span class="error">Erro: ${error.message}</span>`;
+                console.error(error);
+            }
+        };
+
+        runTest();
+    </script>
+</body>
+
+</html>

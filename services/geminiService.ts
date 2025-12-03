@@ -105,73 +105,95 @@ const handleApiError = (error: unknown, context: string): Error => {
     return new Error("Erro desconhecido na IA.");
 };
 
-export const generateChatResponse = async (apiKey: string, chatHistory: ChatMessage[], portfolioContext: string, enableWebSearch: boolean): Promise<GenerateContentResponse> => {
+export const generateChatResponse = async (
+    apiKey: string,
+    chatHistory: ChatMessage[],
+    portfolioContext: string,
+    enableWebSearch: boolean,
+    newsContext?: string
+): Promise<GenerateContentResponse> => {
     const genAI = createAiClient(apiKey);
     if (!genAI) {
         return { text: "Erro: Chave API não configurada." };
     }
 
+    // Limitar tamanho das notícias para não estourar tokens (aprox 2000 caracteres)
+    const safeNewsContext = newsContext ? newsContext.substring(0, 2000) : '';
+
     const systemInstruction = `Você é o Cripto Control AI, especialista em criptomoedas.
     
-    REGRA DE OURO: Use o JSON abaixo como ÚNICA fonte de verdade para números.
+    REGRA DE OURO: Use o JSON abaixo como ÚNICA fonte de verdade para números do portfólio.
     
     DADOS DO PORTFÓLIO:
     \`\`\`json
     ${portfolioContext}
     \`\`\`
     
-    Se a busca web estiver ativa, use-a APENAS para contexto (notícias), NUNCA para substituir os números do JSON.
-    Responda em Markdown.`;
+    ${enableWebSearch ?
+            `VOCÊ TEM ACESSO À BUSCA DO GOOGLE.
+             - Use a ferramenta de busca para encontrar informações ATUALIZADAS sobre o mercado, notícias recentes e eventos relevantes.
+             - Se o usuário perguntar sobre "notícias", "mercado hoje", "por que caiu/subiu", USE A BUSCA.
+             - Cite as fontes encontradas.` :
+            'Use apenas os dados do portfólio fornecidos acima para sua análise.'}
+    
+    ${safeNewsContext ? `CONTEXTO ADICIONAL (RSS): ${safeNewsContext}` : ''}
+    
+    Responda em Markdown com formatação clara.`;
+
+    console.log('🤖 Gerando resposta da IA...');
 
     try {
         const text = await executeWithFallback(genAI, async (modelName) => {
+            const tools = enableWebSearch ? [{ googleSearch: {} }] : [];
+
             const model = genAI.getGenerativeModel({
                 model: modelName,
-                systemInstruction: systemInstruction
+                systemInstruction: systemInstruction,
+                tools: tools as any
             });
 
-            // Converter histórico para o formato do Gemini
-            // ChatMessage geralmente tem 'role' e 'content' (ou 'text')
-            const history = chatHistory.map(msg => ({
+            // Converter histórico para formato da API
+            const fullHistory = chatHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: (msg as any).content || (msg as any).text || "" }]
+                parts: [{ text: (msg as any).content || (msg as any).text || (msg.parts && msg.parts[0] ? msg.parts[0].text : "") }]
             }));
 
-            const lastMessage = history.pop();
+            // Separar a última mensagem (pergunta atual)
+            const lastMessage = fullHistory.pop();
             if (!lastMessage) throw new Error("Conversa vazia.");
 
+            // Limitar histórico anterior para não estourar tokens
+            // Manter apenas as últimas 10 mensagens anteriores
+            const limitedHistory = fullHistory.slice(-10);
+
             // IMPORTANTE: A API Gemini exige que o histórico comece com 'user'
-            // Se após remover a última mensagem, o histórico começar com 'model', removemos até encontrar 'user'
-            while (history.length > 0 && history[0].role === 'model') {
-                history.shift(); // Remove a primeira mensagem se for 'model'
+            while (limitedHistory.length > 0 && limitedHistory[0].role === 'model') {
+                limitedHistory.shift(); // Remove a primeira mensagem se for 'model'
             }
 
-            const chatConfig: any = {
-                history: history,
+            const chat = model.startChat({
+                history: limitedHistory,
                 generationConfig: {
-                    maxOutputTokens: 2000,
-                },
-            };
-
-            // Habilitar busca web se solicitado (Google Search grounding)
-            if (enableWebSearch) {
-                chatConfig.tools = [{
-                    googleSearchRetrieval: {}
-                }];
-            }
-
-            const chat = model.startChat(chatConfig);
+                    maxOutputTokens: 8192, // Aumentado para permitir respostas longas
+                    temperature: 0.7,
+                }
+            });
 
             const result = await chat.sendMessage(lastMessage.parts[0].text);
             const response = await result.response;
-            return response.text();
+
+            console.log('📦 Resposta Bruta Gemini:', JSON.stringify(response, null, 2));
+
+            const text = response.text();
+            console.log('📝 Texto extraído:', text ? text.substring(0, 50) + '...' : 'VAZIO');
+
+            return text;
         });
 
         return { text };
-
     } catch (error) {
-        const err = handleApiError(error, "generateChatResponse");
-        return { text: `Erro: ${err.message}` };
+        console.error('Erro fatal no geminiService:', error);
+        return { text: "Desculpe, ocorreu um erro ao processar sua solicitação. Tente novamente." };
     }
 };
 
@@ -211,9 +233,11 @@ export const generateMarketSentiment = async (apiKey: string, assetSymbol: strin
             const model = genAI.getGenerativeModel({
                 model: modelName,
                 systemInstruction: systemInstruction,
-                generationConfig: { responseMimeType: "application/json" }
+                generationConfig: { responseMimeType: "application/json" },
+                // @ts-ignore
+                tools: [{ googleSearch: {} }] // Enable search for sentiment analysis
             });
-            const prompt = `Sentimento para ${assetSymbol}. Dados: ${historicalPriceContext || "Sem dados históricos."}`;
+            const prompt = `Sentimento para ${assetSymbol}. Use a busca para encontrar notícias RECENTES. Dados históricos: ${historicalPriceContext || "Sem dados históricos."}`;
             const result = await model.generateContent(prompt);
             return result.response.text();
         });
@@ -226,18 +250,27 @@ export const generateCriticalAlerts = async (apiKey: string, assetSymbols: strin
     const genAI = createAiClient(apiKey);
     if (!genAI) throw new Error("Chave API não configurada.");
 
-    const systemInstruction = `Analista de risco crypto. Busque APENAS alertas CRÍTICOS (hacks, delistagens) recentes (7 dias).
-    SAÍDA: Array JSON de alertas. Se nada, retorne [].
-    Sem markdown.`;
+    const systemInstruction = `Você é um analista de risco de criptomoedas.
+    
+    TAREFA: Analise os seguintes ativos e retorne APENAS alertas CRÍTICOS (hacks, delistagens, falências, vulnerabilidades graves).
+    USE A BUSCA DO GOOGLE para verificar informações recentes.
+    
+    Se você NÃO encontrar eventos críticos recentes, retorne um array vazio [].
+    
+    FORMATO DE SAÍDA: Array JSON de objetos com: { "asset": "SÍMBOLO", "severity": "high"|"critical", "message": "descrição breve em Português" }
+    
+    Seja HONESTO. Não invente alertas.`;
 
     try {
         return await executeWithFallback(genAI, async (modelName) => {
             const model = genAI.getGenerativeModel({
                 model: modelName,
                 systemInstruction: systemInstruction,
-                generationConfig: { responseMimeType: "application/json" }
+                generationConfig: { responseMimeType: "application/json" },
+                // @ts-ignore
+                tools: [{ googleSearch: {} }]
             });
-            const result = await model.generateContent(`Alertas para: ${assetSymbols.join(', ')}`);
+            const result = await model.generateContent(`Verifique alertas críticos para: ${assetSymbols.join(', ')}`);
             return result.response.text();
         });
     } catch (error) {
@@ -271,6 +304,66 @@ export const continueRebalanceChat = async (chat: any, message: string): Promise
     } catch (error) {
         const err = handleApiError(error, "continueRebalanceChat");
         return `Erro: ${err.message}`;
+    }
+};
+
+export interface AICriticalAlert {
+    asset: string;
+    summary: string; // Em português
+    severity: 'Alta' | 'Média';
+    sourceUrl?: string;
+}
+
+export const analyzeCriticalNews = async (
+    apiKey: string,
+    newsContext: string,
+    assets: string[]
+): Promise<AICriticalAlert[]> => {
+    const genAI = createAiClient(apiKey);
+    if (!genAI) return [];
+
+    const prompt = `
+    Você é um analista de risco cripto.
+    
+    ATIVOS DO PORTFÓLIO: ${assets.join(', ')}
+    
+    NOTÍCIAS (RSS):
+    ${newsContext.substring(0, 3000)}
+    
+    TAREFA:
+    1. Use a ferramenta de BUSCA DO GOOGLE para verificar se há eventos CRÍTICOS recentes (últimas 24h-48h) afetando estes ativos (Hacks, Processos, Delistings, Quedas > 20%).
+    2. Combine com as notícias do RSS fornecidas.
+    3. Identifique APENAS eventos de ALTO RISCO. Ignore oscilações normais de mercado.
+    4. Gere alertas em PORTUGUÊS.
+    
+    Retorne APENAS um JSON (sem markdown) no formato:
+    [
+        {
+            "asset": "BTC",
+            "summary": "Resumo curto e direto do risco em português",
+            "severity": "Alta",
+            "sourceUrl": "Link da notícia se houver"
+        }
+    ]
+    
+    Se não houver nada crítico, retorne [].
+    `;
+
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            generationConfig: { responseMimeType: "application/json" },
+            // @ts-ignore
+            tools: [{ googleSearch: {} }]
+        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+
+        return JSON.parse(text) as AICriticalAlert[];
+    } catch (error) {
+        console.error("Erro na análise de notícias críticas:", error);
+        return [];
     }
 };
 
