@@ -30,9 +30,10 @@ const AutoCompleteInput: React.FC<AutoCompleteInputProps> = ({ value, onChange, 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const userInput = e.currentTarget.value;
     const upperCaseInput = userInput.toUpperCase();
-    
+
+    // Filter suggestions case-insensitively
     const filtered = suggestions.filter(
-      suggestion => suggestion.toUpperCase().indexOf(upperCaseInput) > -1
+      suggestion => suggestion.toUpperCase().includes(upperCaseInput)
     );
 
     onChange(userInput);
@@ -85,8 +86,8 @@ const AutoCompleteInput: React.FC<AutoCompleteInputProps> = ({ value, onChange, 
   );
 
   return (
-    <div 
-      className="relative" 
+    <div
+      className="relative"
       ref={wrapperRef}
       title={!isValid ? "Ativo não encontrado na base de dados da CoinMarketCap." : ""}
     >
@@ -96,11 +97,10 @@ const AutoCompleteInput: React.FC<AutoCompleteInputProps> = ({ value, onChange, 
         onKeyDown={handleKeyDown}
         value={value}
         placeholder={placeholder}
-        className={`bg-gray-900 border rounded p-2 w-full text-sm focus:outline-none focus:ring-2 ${
-          !isValid
+        className={`bg-gray-900 border rounded p-2 w-full text-sm focus:outline-none focus:ring-2 ${!isValid
             ? 'border-red-500 text-red-400 focus:ring-red-500'
             : 'border-gray-600 focus:ring-indigo-500'
-        }`}
+          }`}
         autoComplete="off"
         onFocus={handleChange}
       />

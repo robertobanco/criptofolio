@@ -87,7 +87,7 @@ const TransactionRow: React.FC<{
           <AutoCompleteInput
             value={editForm.asset}
             onChange={(value) => setEditForm({ ...editForm, asset: value })}
-            suggestions={Object.keys(cryptoMap)}
+            suggestions={Object.values(cryptoMap)}
           />
         </td>
         <td className="p-2 align-middle"><input type="number" step="any" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })} className="bg-gray-800 border border-gray-600 rounded p-2 w-full text-sm" /></td>
@@ -201,7 +201,7 @@ const NewTransactionRow: React.FC<{
         <AutoCompleteInput
           value={newTx.asset}
           onChange={(value) => handleInputChange('asset', value)}
-          suggestions={Object.keys(cryptoMap)}
+          suggestions={Object.values(cryptoMap)}
           placeholder="ex: BTC"
         />
       </td>

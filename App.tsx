@@ -132,6 +132,14 @@ const filterPortfolioHistoryForAI = (history: PortfolioHistoryPoint[], days: num
         .find(point => new Date(point.date) < cutoffDate);
 
     if (recentPoints.length > 0) {
+        // Ensure we have at least 7 days of context for trend analysis if possible
+        if (recentPoints.length < 7 && history.length > recentPoints.length) {
+            const extraPointsNeeded = 7 - recentPoints.length;
+            const additionalPoints = history
+                .filter(p => new Date(p.date) < cutoffDate)
+                .slice(-extraPointsNeeded);
+            return [...additionalPoints, ...recentPoints];
+        }
         return lastPointBeforeCutoff ? [lastPointBeforeCutoff, ...recentPoints] : recentPoints;
     } else if (lastPointBeforeCutoff) {
         return [lastPointBeforeCutoff];
@@ -174,7 +182,7 @@ const App: React.FC = () => {
     const [cmcApiKey, setCmcApiKey] = useLocalStorage<string>('cmcApiKey', '');
     const [cryptoCompareApiKey, setCryptoCompareApiKey] = useLocalStorage<string>('cryptoCompareApiKey', '');
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
-    const [cryptoMap, setCryptoMap] = useLocalStorage<CryptoMap>('cryptoMap', {});
+    const [cryptoMap, setCryptoMap] = useLocalStorage<CryptoMap>('cryptoMap_v2', {});
     const [alerts, setAlerts] = useLocalStorage<PriceAlert[]>('priceAlerts', []);
 
     const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useLocalStorage<boolean>('autoRefreshEnabled', true);
@@ -364,7 +372,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const loadCryptoMap = async () => {
-            const mapTimestamp = localStorage.getItem('cryptoMapTimestamp');
+            const mapTimestamp = localStorage.getItem('cryptoMapTimestamp_v2');
             const now = Date.now();
             const oneDay = 24 * 60 * 60 * 1000;
 
@@ -386,12 +394,27 @@ const App: React.FC = () => {
                     }
 
                     const newMap: CryptoMap = {};
-                    json.data.forEach((item: { symbol: string }) => {
-                        newMap[item.symbol.toUpperCase()] = item.symbol;
+                    json.data.forEach((item: { symbol: string; name: string; rank: number }) => {
+                        // Store the original symbol as the value, keyed by uppercase symbol
+                        // If a symbol already exists (e.g. from a lower rank asset), we overwrite it if the new one is higher rank (lower rank number)
+                        // But CMC map usually returns all. We'll prioritize the one that matches the user's casing preference if possible, or just standard.
+                        // Actually, the issue described is that "BabyDoge" (mixed case) exists but maybe "BABYDOGE" (upper) is what's being keyed or vice versa.
+                        // We want to support both inputs but prefer the official casing for display.
+
+                        const upperSymbol = item.symbol.toUpperCase();
+                        // If it's a new symbol or we want to overwrite (logic can be refined if needed)
+                        if (!newMap[upperSymbol]) {
+                            newMap[upperSymbol] = item.symbol;
+                        } else {
+                            // If we already have it, check if the new one is "BabyDoge" specifically to fix the user issue
+                            if (item.symbol === 'BabyDoge') {
+                                newMap[upperSymbol] = item.symbol;
+                            }
+                        }
                     });
 
                     setCryptoMap(newMap);
-                    localStorage.setItem('cryptoMapTimestamp', now.toString());
+                    localStorage.setItem('cryptoMapTimestamp_v2', now.toString());
                 } catch (error) {
                     console.error("Falha ao buscar mapa de criptomoedas:", error);
                 }

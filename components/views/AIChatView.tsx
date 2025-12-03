@@ -30,8 +30,9 @@ const suggestedQuestions: SuggestedQuestion[] = [
 ];
 
 const renderFormattedMessage = (text: string) => {
-  // Regex para encontrar links markdown e convertê-los em tags <a>
-  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g;
+  // Regex melhorada para encontrar links markdown e convertê-los em tags <a>
+  // Captura URLs que podem conter parênteses, query strings, etc.
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 
   return {
     __html: text

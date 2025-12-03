@@ -133,10 +133,21 @@ export const generateChatResponse = async (
             `VOCÊ TEM ACESSO À BUSCA DO GOOGLE.
              - Use a ferramenta de busca para encontrar informações ATUALIZADAS sobre o mercado, notícias recentes e eventos relevantes.
              - Se o usuário perguntar sobre "notícias", "mercado hoje", "por que caiu/subiu", USE A BUSCA.
-             - Cite as fontes encontradas.` :
+             - IMPORTANTE: Quando citar uma fonte da busca, você DEVE incluir a URL COMPLETA que a ferramenta de busca retornou.
+             - Formato obrigatório para fontes: [Nome do Site - Título](URL_COMPLETA_AQUI)
+             - Exemplo correto: [CoinDesk - Bitcoin sobe 5%](https://www.coindesk.com/markets/2024/...)
+             - NÃO use textos genéricos como "IA Analysis + Web". Use URLs REAIS dos resultados da busca.` :
             'Use apenas os dados do portfólio fornecidos acima para sua análise.'}
     
     ${safeNewsContext ? `CONTEXTO ADICIONAL (RSS): ${safeNewsContext}` : ''}
+
+    INSTRUÇÕES PARA ANÁLISE DE VARIAÇÕES:
+    1. Identifique as maiores variações (positivas e negativas) no portfólio.
+    2. Para cada ativo com variação significativa (>5% ou <-5%), USE A BUSCA DO GOOGLE para encontrar o motivo RECENTE (últimos 3-7 dias).
+    3. Quando encontrar uma notícia específica na busca, cite-a com o link COMPLETO no formato: [Título da Notícia](URL_completa)
+    4. Se não encontrar nada específico, mencione o movimento geral do mercado (ex: Bitcoin puxando altcoins).
+    5. NÃO diga "não há notícias no feed". Busque ativamente.
+    6. OBRIGATÓRIO: Ao citar fontes da busca do Google, SEMPRE inclua a URL real retornada pela ferramenta.
     
     Responda em Markdown com formatação clara.`;
 
