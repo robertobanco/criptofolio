@@ -580,7 +580,7 @@ const RebalanceSection: React.FC<RebalanceSectionProps> = ({
                   <AutoCompleteInput
                     value={newAssetSymbol}
                     onChange={setNewAssetSymbol}
-                    suggestions={Object.keys(cryptoMap).filter(s => targetAllocations[s] === undefined)}
+                    suggestions={Object.values(cryptoMap).filter(s => targetAllocations[s.toUpperCase()] === undefined)}
                     placeholder="Digite o ticker (ex: BTC)"
                   />
                 </div>

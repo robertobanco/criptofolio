@@ -58,7 +58,7 @@ const WatchlistSection: React.FC<WatchlistSectionProps> = ({
             <AutoCompleteInput
               value={newAsset}
               onChange={setNewAsset}
-              suggestions={Object.keys(cryptoMap)}
+              suggestions={Object.values(cryptoMap)}
               placeholder="ex: BTC, ETH, ADA..."
             />
           </div>
@@ -98,11 +98,11 @@ const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                     >
                       <td className="p-2 font-bold">
                         <button
-                            onClick={() => onViewDetails(symbol)}
-                            className="bg-transparent border-none p-0 font-bold text-inherit hover:text-indigo-400 focus:outline-none focus:text-indigo-400 transition-colors cursor-pointer"
-                            aria-label={`Ver detalhes de ${symbol}`}
+                          onClick={() => onViewDetails(symbol)}
+                          className="bg-transparent border-none p-0 font-bold text-inherit hover:text-indigo-400 focus:outline-none focus:text-indigo-400 transition-colors cursor-pointer"
+                          aria-label={`Ver detalhes de ${symbol}`}
                         >
-                            {symbol}
+                          {symbol}
                         </button>
                         {isOwned && <i className="fas fa-wallet text-indigo-400 text-xs ml-2" title="Você possui este ativo"></i>}
                       </td>

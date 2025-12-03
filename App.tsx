@@ -743,7 +743,7 @@ const App: React.FC = () => {
                         asset: alert.asset,
                         severity: 'Alta', // Forçar 'Alta' para garantir compatibilidade com CriticalAlert
                         summary: alert.summary,
-                        source: alert.sourceUrl ? 'IA Analysis + Web' : 'Cripto Control AI'
+                        source: alert.sourceUrl || 'Fonte não disponível'
                     }));
 
                     setCriticalAlerts(newAlerts);
@@ -994,6 +994,13 @@ const App: React.FC = () => {
         const trimmedPortfolioHistory = filterPortfolioHistoryForAI(portfolioHistoryForAI, 30);
         const trimmedHistoricalAssetValues = filterHistoryForAI(allAssetsHistoricalValues, 30);
 
+        // Add recent price changes (24h) to each asset for AI analysis
+        const assetPerformanceWithRecentChanges = performanceData.map(asset => ({
+            ...asset,
+            priceChange24h: cryptoData[asset.symbol]?.percent_change_24h || 0,
+            currentPrice: cryptoData[asset.symbol]?.price || 0,
+        }));
+
         const portfolioDataForAI = {
             currentDate: new Date().toISOString().split('T')[0],
             generalSummary: {
@@ -1002,7 +1009,7 @@ const App: React.FC = () => {
                 totalProfit,
                 analyzedAccounts: accountNames,
             },
-            assetPerformance: performanceData,
+            assetPerformance: assetPerformanceWithRecentChanges,
             profitAnalysis: profitAnalysisData,
             transactions: trimmedTransactions,
             portfolioHistory: trimmedPortfolioHistory,

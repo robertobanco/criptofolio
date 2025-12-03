@@ -136,18 +136,21 @@ export const generateChatResponse = async (
              - IMPORTANTE: Quando citar uma fonte da busca, você DEVE incluir a URL COMPLETA que a ferramenta de busca retornou.
              - Formato obrigatório para fontes: [Nome do Site - Título](URL_COMPLETA_AQUI)
              - Exemplo correto: [CoinDesk - Bitcoin sobe 5%](https://www.coindesk.com/markets/2024/...)
+             - Se encontrar MÚLTIPLAS fontes relevantes, cite TODAS elas.
              - NÃO use textos genéricos como "IA Analysis + Web". Use URLs REAIS dos resultados da busca.` :
             'Use apenas os dados do portfólio fornecidos acima para sua análise.'}
     
     ${safeNewsContext ? `CONTEXTO ADICIONAL (RSS): ${safeNewsContext}` : ''}
 
     INSTRUÇÕES PARA ANÁLISE DE VARIAÇÕES:
-    1. Identifique as maiores variações (positivas e negativas) no portfólio.
-    2. Para cada ativo com variação significativa (>5% ou <-5%), USE A BUSCA DO GOOGLE para encontrar o motivo RECENTE (últimos 3-7 dias).
-    3. Quando encontrar uma notícia específica na busca, cite-a com o link COMPLETO no formato: [Título da Notícia](URL_completa)
-    4. Se não encontrar nada específico, mencione o movimento geral do mercado (ex: Bitcoin puxando altcoins).
-    5. NÃO diga "não há notícias no feed". Busque ativamente.
-    6. OBRIGATÓRIO: Ao citar fontes da busca do Google, SEMPRE inclua a URL real retornada pela ferramenta.
+    1. O campo "priceChange24h" em cada ativo mostra a variação nas ÚLTIMAS 24 HORAS. Use ESTE campo para identificar variações recentes.
+    2. NÃO confunda com "variation" que é a variação acumulada desde a compra.
+    3. Identifique os ativos com maior priceChange24h (positivo) e menor priceChange24h (negativo).
+    4. Para cada ativo com |priceChange24h| > 5%, USE A BUSCA DO GOOGLE para encontrar notícias das últimas 24-48h.
+    5. Quando encontrar notícias, cite-as com links COMPLETOS: [Título da Notícia](URL_completa)
+    6. Se encontrar MÚLTIPLAS fontes sobre o mesmo ativo, cite TODAS.
+    7. Se não encontrar nada específico, mencione o movimento geral do mercado.
+    8. OBRIGATÓRIO: Sempre inclua URLs reais dos resultados da busca.
     
     Responda em Markdown com formatação clara.`;
 
@@ -346,6 +349,7 @@ export const analyzeCriticalNews = async (
     2. Combine com as notícias do RSS fornecidas.
     3. Identifique APENAS eventos de ALTO RISCO. Ignore oscilações normais de mercado.
     4. Gere alertas em PORTUGUÊS.
+    5. OBRIGATÓRIO: Inclua a URL da fonte (sourceUrl) para cada alerta. Use a URL real retornada pela busca ou do RSS.
     
     Retorne APENAS um JSON (sem markdown) no formato:
     [
@@ -353,7 +357,7 @@ export const analyzeCriticalNews = async (
             "asset": "BTC",
             "summary": "Resumo curto e direto do risco em português",
             "severity": "Alta",
-            "sourceUrl": "Link da notícia se houver"
+            "sourceUrl": "URL_COMPLETA_DA_FONTE_AQUI"
         }
     ]
     
