@@ -1021,9 +1021,12 @@ const App: React.FC = () => {
     }, [performanceData, profitAnalysisData, accounts, activeAccountIds, totalCostBasis, activeTransactions, portfolioHistoryForAI, allAssetsHistoricalValues, watchlist]);
 
     const handleAnalyzePortfolio = async () => {
-        setChatHistory([
-            { role: 'model', parts: [{ text: "Olá! Eu sou o Cripto Control AI. Estou pronto para analisar sua carteira, incluindo os ativos na sua watchlist. Sobre o que você gostaria de saber?" }] }
-        ]);
+        // Only initialize chat if it's empty
+        if (chatHistory.length === 0) {
+            setChatHistory([
+                { role: 'model', parts: [{ text: "Olá! Eu sou o Cripto Control AI. Estou pronto para analisar sua carteira, incluindo os ativos na sua watchlist. Sobre o que você gostaria de saber?" }] }
+            ]);
+        }
         setAnalysisModalOpen(true);
     };
 
@@ -1061,6 +1064,37 @@ const App: React.FC = () => {
             setIsGeneratingBriefing(false);
         }
     }, [geminiApiKey, getPortfolioSummary, addToast, dailyBriefingContent, isGeneratingBriefing]);
+
+    const handleClearBriefing = () => {
+        setDailyBriefingContent(null);
+        setBriefingError(null);
+        addToast('Briefing limpo. Clique em "Gerar Novo Briefing" para atualizar.', 'info');
+    };
+
+    const handleRegenerateBriefing = async () => {
+        if (!geminiApiKey) {
+            addToast('Chave de API do Gemini é necessária. Adicione nas Configurações.', 'error');
+            return;
+        }
+
+        setIsGeneratingBriefing(true);
+        setBriefingError(null);
+        setDailyBriefingContent(null);
+
+        try {
+            const summary = getPortfolioSummary();
+            const briefing = await generateDailyBriefing(geminiApiKey, summary);
+            setDailyBriefingContent(briefing);
+            addToast('Briefing atualizado com sucesso!', 'success');
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido ao gerar o briefing.";
+            console.error("Erro ao gerar briefing diário:", error);
+            setBriefingError(errorMessage);
+        } finally {
+            setIsGeneratingBriefing(false);
+        }
+    };
+
 
     const handleSendChatMessage = async (message: string, webSearchEnabled: boolean) => {
         if (isAnalyzing) return;
@@ -1618,13 +1652,29 @@ const App: React.FC = () => {
                     <>
                         <Button variant="secondary" onClick={() => setIsBriefingModalOpen(false)}>Fechar</Button>
                         {dailyBriefingContent && !isGeneratingBriefing && (
-                            <Button
-                                variant="primary"
-                                icon="fa-share-alt"
-                                onClick={() => handleShareText(dailyBriefingContent, "Briefing Diário CriptoFólio AI")}
-                            >
-                                Compartilhar
-                            </Button>
+                            <>
+                                <Button
+                                    variant="ghost"
+                                    icon="fa-trash"
+                                    onClick={handleClearBriefing}
+                                >
+                                    Limpar
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    icon="fa-sync"
+                                    onClick={handleRegenerateBriefing}
+                                >
+                                    Gerar Novo Briefing
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    icon="fa-share-alt"
+                                    onClick={() => handleShareText(dailyBriefingContent, "Briefing Diário CriptoFólio AI")}
+                                >
+                                    Compartilhar
+                                </Button>
+                            </>
                         )}
                     </>
                 }

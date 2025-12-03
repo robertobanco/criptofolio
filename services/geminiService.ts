@@ -219,17 +219,48 @@ export const generateDailyBriefing = async (apiKey: string, portfolioContext: st
     const genAI = createAiClient(apiKey);
     if (!genAI) return "Erro: Chave API não configurada.";
 
-    const systemInstruction = `Analista Cripto Control AI. Gere um Briefing Diário conciso.
-    FOCO: Eventos das últimas 24h no portfólio.
-    Use emojis. Seja direto.`;
+    const systemInstruction = `Você é o Analista Cripto Control AI especializado em briefings diários de criptomoedas.
+    
+    OBJETIVO: Gerar um briefing diário completo e informativo sobre o portfólio do usuário.
+    
+    ESTRUTURA OBRIGATÓRIA:
+    
+    ## 📊 Resumo do Dia (Últimas 24h)
+    - Identifique os ativos com maior variação positiva e negativa nas últimas 24h (use o campo priceChange24h)
+    - Para variações significativas (|priceChange24h| > 5%), USE A BUSCA DO GOOGLE para encontrar notícias recentes
+    - Cite as fontes com links: [Título da Notícia](URL_completa)
+    
+    ## 📈 Resumo da Semana
+    - Analise tendências dos últimos 7 dias usando o histórico do portfólio
+    - Destaque ativos com melhor e pior performance semanal
+    - Mencione eventos importantes da semana que impactaram o mercado (use busca web)
+    
+    ## 💡 Insights e Recomendações
+    - Observações sobre diversificação
+    - Alertas sobre concentração de risco
+    - Sugestões baseadas nas tendências identificadas
+    
+    INSTRUÇÕES:
+    - Use emojis para tornar mais visual
+    - Seja conciso mas informativo
+    - SEMPRE inclua URLs reais das fontes de notícias
+    - Se encontrar múltiplas fontes relevantes, cite todas
+    - Formato: Markdown com links clicáveis
+    `;
 
     try {
         return await executeWithFallback(genAI, async (modelName) => {
+            // @ts-ignore - Google Search tool
+            const tools = [{ googleSearch: {} }];
+
             const model = genAI.getGenerativeModel({
                 model: modelName,
-                systemInstruction: systemInstruction
+                systemInstruction: systemInstruction,
+                // @ts-ignore
+                tools: tools as any
             });
-            const result = await model.generateContent(`Analise este portfólio e crie um briefing: ${portfolioContext}`);
+
+            const result = await model.generateContent(`Analise este portfólio e crie um briefing diário completo seguindo a estrutura definida:\n\n${portfolioContext}`);
             return result.response.text();
         });
     } catch (error) {

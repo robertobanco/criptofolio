@@ -32,17 +32,23 @@ const WatchlistSection: React.FC<WatchlistSectionProps> = ({
   const [newAsset, setNewAsset] = useState('');
 
   const handleAdd = () => {
-    const asset = newAsset.toUpperCase().trim();
-    if (!asset) {
+    const inputAsset = newAsset.trim();
+    if (!inputAsset) {
       addToast('O campo do ativo não pode estar vazio.', 'error');
       return;
     }
-    const isValidAsset = Object.keys(cryptoMap).map(s => s.toUpperCase()).includes(asset);
-    if (!isValidAsset) {
-      addToast(`O ativo "${asset}" não foi encontrado. Verifique o ticker.`, 'error');
+
+    // Find the correct symbol with original casing from cryptoMap
+    const correctSymbol = Object.values(cryptoMap).find(
+      s => s.toUpperCase() === inputAsset.toUpperCase()
+    );
+
+    if (!correctSymbol) {
+      addToast(`O ativo "${inputAsset}" não foi encontrado. Verifique o ticker.`, 'error');
       return;
     }
-    onAdd(asset);
+
+    onAdd(correctSymbol);
     setNewAsset('');
   };
 
